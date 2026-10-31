@@ -5,6 +5,7 @@
 // Renders |B| density plot as colored triangles and A equipotential contours.
 // Color map and rendering approach ported from FemmviewView.cpp.
 
+#include "touch_nav.h"
 #include "results_widget.h"
 #include "coord_display.h"
 #include "zoom_fit.h"
@@ -71,6 +72,9 @@ ResultsWidget::ResultsWidget(ResultsDoc *doc, QWidget *parent)
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     setMinimumSize(200, 200);
+    TouchNav::attach(this, [this](const QPointF &a, double f, const QPointF &m) {
+        zoomPanBy(a, f, m);
+    });
 
     // Phase slider for AC vector plots — overlaid at bottom
     m_phaseSlider = new QSlider(Qt::Horizontal, this);
@@ -1321,3 +1325,17 @@ void ResultsWidget::showProblemInfo(QWidget *parent) { m_handler->showProblemInf
 void ResultsWidget::showBHCurves(QWidget *parent) { m_handler->showBHCurves(parent); }
 
 // (handler implementations are in magnetics_handler.cpp)
+
+// Touch navigation (touch_nav.h): zoom by factor about anchor, then let the
+// anchor follow the fingers by `moved` pixels.
+void ResultsWidget::zoomPanBy(const QPointF &anchor, double factor, const QPointF &moved)
+{
+    double xd, yd;
+    toDrawing(qRound(anchor.x()), qRound(anchor.y()), xd, yd);
+    m_mag *= factor;
+    if (m_mag < 0.01) m_mag = 0.01;
+    const QPointF c = anchor + moved;
+    m_ox = xd - c.x() / m_mag;
+    m_oy = yd - (height() - 1 - c.y()) / m_mag;
+    update();
+}

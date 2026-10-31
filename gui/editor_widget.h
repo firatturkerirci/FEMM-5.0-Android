@@ -36,6 +36,7 @@ public:
 
     // Zoom/pan
     void zoomIn();
+    void zoomPanBy(const QPointF &anchor, double factor, const QPointF &moved);
     void zoomOut();
     void zoomFit();
     void zoomTo(double x0, double y0, double x1, double y1);

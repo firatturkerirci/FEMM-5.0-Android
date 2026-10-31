@@ -745,6 +745,14 @@ int main(int argc, char *argv[])
             // exit 0 on success. Used by CI on the desktop and on an emulator.
             selftestScript = qargs[++i];
             selftestOut = qargs[++i];
+#ifdef __ANDROID__
+            // Relative paths: the script from the work folder (where the
+            // examples are), the results into the adb-readable folder.
+            if (QFileInfo(selftestOut).isRelative()) {
+                const QString ext = femmAndroidExternalDir();
+                if (!ext.isEmpty()) selftestOut = ext + "/" + selftestOut;
+            }
+#endif
         } else if ((qargs[i] == "-port" || qargs[i] == "--port") && i + 1 < qargs.size()) {
             port = qargs[++i].toInt();
         } else if (qargs[i] == "-run" && i + 1 < qargs.size()) {

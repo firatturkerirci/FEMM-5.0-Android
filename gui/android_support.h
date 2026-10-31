@@ -13,4 +13,6 @@
 void femmAndroidSetup();
 // The folder holding the user's models and scripts.
 QString femmAndroidWorkDir();
+// The app's external files folder (readable over adb); empty if unavailable.
+QString femmAndroidExternalDir();
 #endif

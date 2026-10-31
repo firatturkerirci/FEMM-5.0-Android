@@ -9,6 +9,7 @@
 //   - Middle drag: pan
 //   - Wheel: zoom toward cursor
 
+#include "touch_nav.h"
 #include "editor_widget.h"
 #include "coord_display.h"
 #include "zoom_fit.h"
@@ -53,6 +54,9 @@ EditorWidget::EditorWidget(DocumentBase *doc, QWidget *parent)
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     setMinimumSize(200, 200);
+    TouchNav::attach(this, [this](const QPointF &a, double f, const QPointF &m) {
+        zoomPanBy(a, f, m);
+    });
 }
 
 EditorWidget::~EditorWidget()
@@ -1354,5 +1358,19 @@ void EditorWidget::openSelected()
     }
 
     m_doc->UnselectAll();
+    update();
+}
+
+// Touch navigation (touch_nav.h): zoom by factor about anchor, then let the
+// anchor follow the fingers by `moved` pixels.
+void EditorWidget::zoomPanBy(const QPointF &anchor, double factor, const QPointF &moved)
+{
+    double xd, yd;
+    toDrawing(qRound(anchor.x()), qRound(anchor.y()), xd, yd);
+    m_mag *= factor;
+    if (m_mag < 0.01) m_mag = 0.01;
+    const QPointF c = anchor + moved;
+    m_ox = xd - c.x() / m_mag;
+    m_oy = yd - (height() - 1 - c.y()) / m_mag;
     update();
 }

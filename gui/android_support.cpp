@@ -101,4 +101,16 @@ QString femmAndroidWorkDir()
     return s_workDir;
 }
 
+QString femmAndroidExternalDir()
+{
+    // getExternalFilesDir(null) also creates the folder. adb can read it
+    // without root, which is what the CI self-test relies on.
+    QJniObject ctx = QNativeInterface::QAndroidApplication::context();
+    if (!ctx.isValid()) return QString();
+    QJniObject dir = ctx.callObjectMethod("getExternalFilesDir",
+        "(Ljava/lang/String;)Ljava/io/File;", nullptr);
+    if (!dir.isValid()) return QString();
+    return dir.callObjectMethod("getAbsolutePath", "()Ljava/lang/String;").toString();
+}
+
 #endif // __ANDROID__

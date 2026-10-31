@@ -68,6 +68,9 @@ if(FEMM_GC_BDWGC)
         GC_DISABLE_INCREMENTAL  # no dirty-bit tracking, no SIGSEGV handler ever
         NO_EXECUTE_PERMISSION   # heap pages are data, not code
         GC_NO_THREADS_DISCOVERY
+        # bdwgc enables mmap by default on desktop Linux but not on Android,
+        # and USE_MUNMAP needs it.
+        $<$<BOOL:${ANDROID}>:USE_MMAP>
     )
     # No GC_THREADS: MICROPY_PY_THREAD is 0 and only the script thread touches
     # the collector. Qt's threads and PyBridgeHost's socket loop never allocate

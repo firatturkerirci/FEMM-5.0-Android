@@ -12,10 +12,22 @@ permissions:
 env:
   QT_VERSION: '6.8.3'
   NDK_VERSION: '26.1.10909125'
+  APP_ID: 'io.github.firatturkerirci.femm'
 
 jobs:
   apk:
+    name: APK (${{ matrix.abi }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # arm64-v8a: what tablets and phones run; this is the release APK.
+          - abi: arm64-v8a
+            qt_arch: android_arm64_v8a
+          # x86_64: Chromebooks and the emulator the smoke test runs on.
+          - abi: x86_64
+            qt_arch: android_x86_64
     steps:
       - uses: actions/checkout@v5
         with:
@@ -31,25 +43,21 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/Qt
-          key: qt-${{ env.QT_VERSION }}-android-arm64-host-gcc64-v2
+          key: qt-${{ env.QT_VERSION }}-${{ matrix.qt_arch }}-host-gcc64-v2
 
       - name: Install Qt for Android (plus the desktop host Qt)
         if: steps.qt-cache.outputs.cache-hit != 'true'
         run: |
           python3 -m pip install --quiet "aqtinstall>=3.3"
-          echo "--- available android Qt versions"
-          python3 -m aqt list-qt all_os android 2>/dev/null | tail -3 || true
-          python3 -m aqt list-qt linux android 2>/dev/null | tail -3 || true
           python3 -m aqt install-qt linux desktop "$QT_VERSION" linux_gcc_64 -O ~/Qt
-          python3 -m aqt install-qt all_os android "$QT_VERSION" android_arm64_v8a -O ~/Qt \
-            || python3 -m aqt install-qt linux android "$QT_VERSION" android_arm64_v8a -O ~/Qt
+          python3 -m aqt install-qt all_os android "$QT_VERSION" ${{ matrix.qt_arch }} -O ~/Qt \
+            || python3 -m aqt install-qt linux android "$QT_VERSION" ${{ matrix.qt_arch }} -O ~/Qt
           ls ~/Qt/"$QT_VERSION"
 
       - name: Locate Qt
         run: |
-          echo "QT_ROOT_DIR=$HOME/Qt/$QT_VERSION/android_arm64_v8a" >> "$GITHUB_ENV"
+          echo "QT_ROOT_DIR=$HOME/Qt/$QT_VERSION/${{ matrix.qt_arch }}" >> "$GITHUB_ENV"
           echo "QT_HOST_PATH=$HOME/Qt/$QT_VERSION/gcc_64" >> "$GITHUB_ENV"
-          ls "$HOME/Qt/$QT_VERSION"
 
       - name: Install the Android NDK and platform
         run: |
@@ -61,12 +69,9 @@ jobs:
 
       - name: Configure
         run: |
-          HOST_QT="$QT_HOST_PATH"
-          echo "Qt (android): $QT_ROOT_DIR"
-          echo "Qt (host):    $HOST_QT"
           "$QT_ROOT_DIR/bin/qt-cmake" -S . -B build-android -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DQT_HOST_PATH="$HOST_QT" \
+            -DQT_HOST_PATH="$QT_HOST_PATH" \
             -DANDROID_SDK_ROOT="$ANDROID_SDK_ROOT" \
             -DANDROID_NDK_ROOT="$ANDROID_NDK_ROOT" \
             -DFEMM_ANDROID_VERSION_CODE=${{ github.run_number }}
@@ -106,23 +111,49 @@ jobs:
               -keypass "$KEYSTORE_PASS" -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 \
               -validity 10000 -dname "CN=FEMM Android CI" > /dev/null
           fi
+          OUT="femm-android-${{ matrix.abi }}.apk"
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" aligned.apk
           "$BUILD_TOOLS/apksigner" sign --ks release.keystore --ks-pass "pass:$KEYSTORE_PASS" \
-            --ks-key-alias "$KEY_ALIAS" --out femm-android.apk aligned.apk
-          "$BUILD_TOOLS/apksigner" verify femm-android.apk
+            --ks-key-alias "$KEY_ALIAS" --out "$OUT" aligned.apk
+          "$BUILD_TOOLS/apksigner" verify "$OUT"
           rm -f release.keystore aligned.apk
           echo "--- native libraries in the APK"
-          unzip -l femm-android.apk | grep "lib/" || true
-          ls -la femm-android.apk
+          unzip -l "$OUT" | grep "lib/" || true
+          ls -la "$OUT"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: femm-android-apk
-          path: femm-android.apk
+          name: femm-android-${{ matrix.abi }}
+          path: femm-android-${{ matrix.abi }}.apk
+
+      - name: Enable KVM for the emulator
+        if: matrix.abi == 'x86_64'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Smoke test on an emulator (run the demo script in the app)
+        if: matrix.abi == 'x86_64'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_tablet
+          disable-animations: true
+          script: bash android/ci/smoke_test.sh femm-android-x86_64.apk ${{ env.APP_ID }} smoke
+
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.abi == 'x86_64'
+        with:
+          name: smoke-test
+          path: smoke/
 
       - name: Attach to the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.abi == 'arm64-v8a'
         uses: softprops/action-gh-release@v2
         with:
-          files: femm-android.apk
+          files: femm-android-arm64-v8a.apk
           prerelease: true

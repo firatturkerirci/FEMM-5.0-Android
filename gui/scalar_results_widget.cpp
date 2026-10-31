@@ -6,6 +6,7 @@
 // and D/E vector arrows for electrostatics (and later heat/current flow).
 // Adapted from results_widget.cpp (magnetics) for real-valued scalar potentials.
 
+#include "touch_nav.h"
 #include "scalar_results_widget.h"
 #include "coord_display.h"
 #include "zoom_fit.h"
@@ -82,6 +83,9 @@ ScalarResultsWidget::ScalarResultsWidget(ElecResultsDoc *doc, QWidget *parent)
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     setMinimumSize(200, 200);
+    TouchNav::attach(this, [this](const QPointF &a, double f, const QPointF &m) {
+        zoomPanBy(a, f, m);
+    });
 }
 
 ScalarResultsWidget::ScalarResultsWidget(HeatResultsDoc *doc, QWidget *parent)
@@ -94,6 +98,9 @@ ScalarResultsWidget::ScalarResultsWidget(HeatResultsDoc *doc, QWidget *parent)
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     setMinimumSize(200, 200);
+    TouchNav::attach(this, [this](const QPointF &a, double f, const QPointF &m) {
+        zoomPanBy(a, f, m);
+    });
 }
 
 ScalarResultsWidget::ScalarResultsWidget(CurrResultsDoc *doc, QWidget *parent)
@@ -106,6 +113,9 @@ ScalarResultsWidget::ScalarResultsWidget(CurrResultsDoc *doc, QWidget *parent)
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     setMinimumSize(200, 200);
+    TouchNav::attach(this, [this](const QPointF &a, double f, const QPointF &m) {
+        zoomPanBy(a, f, m);
+    });
 
     // Phase slider for AC vector plots — overlaid at bottom
     m_phaseSlider = new QSlider(Qt::Horizontal, this);
@@ -1505,3 +1515,17 @@ void ScalarResultsWidget::showContourPlotDialog(QWidget *parent) { m_handler->sh
 void ScalarResultsWidget::showDensityPlotDialog(QWidget *parent) { m_handler->showDensityPlotDialog(parent); }
 void ScalarResultsWidget::showVectorPlotDialog(QWidget *parent) { m_handler->showVectorPlotDialog(parent); }
 void ScalarResultsWidget::showProblemInfo(QWidget *parent) { m_handler->showProblemInfo(parent); }
+
+// Touch navigation (touch_nav.h): zoom by factor about anchor, then let the
+// anchor follow the fingers by `moved` pixels.
+void ScalarResultsWidget::zoomPanBy(const QPointF &anchor, double factor, const QPointF &moved)
+{
+    double xd, yd;
+    toDrawing(qRound(anchor.x()), qRound(anchor.y()), xd, yd);
+    m_mag *= factor;
+    if (m_mag < 0.01) m_mag = 0.01;
+    const QPointF c = anchor + moved;
+    m_ox = xd - c.x() / m_mag;
+    m_oy = yd - (height() - 1 - c.y()) / m_mag;
+    update();
+}
