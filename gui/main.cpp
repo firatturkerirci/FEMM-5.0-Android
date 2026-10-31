@@ -53,6 +53,9 @@
 #include "tcp_server.h"
 #include "solver_progress_dialog.h"
 #include "android_support.h"
+#include "script_panel.h"
+#include <QTimer>
+#include <QFile>
 
 // Global pointer so the script callback can reach the main window
 static MainWindow *s_mainWindow = nullptr;
@@ -734,8 +737,15 @@ int main(int argc, char *argv[])
     QString fileArg;   // positional arg: a document to open, or a .py script to run
     bool runAndExit = false;   // -run <script>: run the script, then exit (like femm_headless -run)
     QStringList scriptArgs;   // becomes sys.argv[1:] when fileArg is a script
+    QString selftestScript, selftestOut;
     for (int i = 1; i < qargs.size(); i++) {
-        if ((qargs[i] == "-port" || qargs[i] == "--port") && i + 1 < qargs.size()) {
+        if (qargs[i] == "-selftest" && i + 2 < qargs.size()) {
+            // -selftest <script.py> <out.png>: run the script from the script
+            // panel, save a screenshot and <out.png>.txt (status + output),
+            // exit 0 on success. Used by CI on the desktop and on an emulator.
+            selftestScript = qargs[++i];
+            selftestOut = qargs[++i];
+        } else if ((qargs[i] == "-port" || qargs[i] == "--port") && i + 1 < qargs.size()) {
             port = qargs[++i].toInt();
         } else if (qargs[i] == "-run" && i + 1 < qargs.size()) {
             fileArg = qargs[++i];
@@ -848,6 +858,35 @@ int main(int argc, char *argv[])
     // solver event loops during mi_analyze), so exit now with its status instead
     // of entering the main event loop and leaving the window open. Mirrors
     // femm_headless -run, so a script developed here runs the same way headless.
+    if (!selftestScript.isEmpty()) {
+        QTimer::singleShot(1000, &w, [&w, selftestScript, selftestOut]() {
+            ScriptPanel *p = w.scriptPanel();
+            p->show();
+            QFile f(selftestScript);
+            if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                fprintf(stderr, "selftest: cannot open %s\n", qPrintable(selftestScript));
+                qApp->exit(2);
+                return;
+            }
+            p->setScriptText(QString::fromUtf8(f.readAll()),
+                             QFileInfo(selftestScript).fileName());
+            p->runScript();
+            const bool ok = p->lastErrorReport().isEmpty()
+                            && p->statusText().startsWith("Completed");
+            QTimer::singleShot(1500, &w, [&w, p, ok, selftestOut]() {
+                w.grab().save(selftestOut);
+                QFile t(selftestOut + ".txt");
+                if (t.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+                    t.write((p->statusText() + "\n---\n" + p->outputText() + "\n---\n"
+                             + p->lastErrorReport()).toUtf8());
+                }
+                fprintf(stderr, "selftest: %s\n%s\n", ok ? "OK" : "FAILED",
+                        qPrintable(p->statusText()));
+                qApp->exit(ok ? 0 : 1);
+            });
+        });
+    }
+
     int result = runAndExit ? runStatus : app.exec();
 
     s_mainWindow = nullptr;

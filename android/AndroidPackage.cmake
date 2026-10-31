@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: MIT
 #
-# Android packaging for femm_gui. Included from the top-level CMakeLists.txt
-# after the solver targets exist.
+# Android packaging for femm_gui. Included from gui/CMakeLists.txt. The solver
+# targets are defined later in the top-level CMakeLists.txt; only their output
+# paths and names are needed here, and Qt finalizes the target at the end of
+# the gui directory.
 #
 #  * The four solvers are built as executables named lib<name>.so and listed
 #    as extra native libraries, so the APK installs them into the app's native
@@ -57,6 +59,8 @@ function(femm_android_package APP)
         QT_ANDROID_VERSION_CODE "${FEMM_ANDROID_VERSION_CODE}"
         QT_ANDROID_TARGET_SDK_VERSION 34
         QT_ANDROID_MIN_SDK_VERSION 28)
+    if(COMMAND qt_policy)
+        qt_policy(SET QTP0002 NEW)
+    endif()
 
-    qt_finalize_target(${APP})
 endfunction()

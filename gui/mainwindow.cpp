@@ -8,6 +8,7 @@
 #include "femm_resource.h"
 #include "build_info.h"
 #include "py_console.h"
+#include "script_panel.h"
 #include "pre_prefs_dialog.h"
 #include "script_prefs_dialog.h"
 #include "coord_display.h"
@@ -126,6 +127,27 @@ MainWindow::MainWindow(TcpServer *server, QWidget *parent)
     m_pyConsole = new PyConsole(this);
     addDockWidget(Qt::BottomDockWidgetArea, m_pyConsole);
     m_pyConsole->hide();
+
+    // Script panel: paste or open a script, run it, copy errors back to an AI
+    // assistant. Docked left; shown by default on Android, where it is the
+    // main way in, and one click away (left Script toolbar) elsewhere.
+    m_scriptPanel = new ScriptPanel(m_pyConsole, this);
+    addDockWidget(Qt::LeftDockWidgetArea, m_scriptPanel);
+    {
+        QAction *a = m_scriptPanel->toggleViewAction();
+        a->setText(tr("Script Editor"));
+        a->setIcon(icon("lua_script"));
+        a->setToolTip(tr("Show the script editor"));
+        m_leftScript->addAction(a);
+    }
+#ifdef __ANDROID__
+    m_scriptPanel->show();
+    QTimer::singleShot(0, this, [this]() {
+        resizeDocks({m_scriptPanel}, {width() * 45 / 100}, Qt::Horizontal);
+    });
+#else
+    m_scriptPanel->hide();
+#endif
     connect(m_pyConsole, &PyConsole::scriptRunningChanged, this, [this](bool running) {
         if (running)
             statusBar()->showMessage(tr("Script running - press Esc to stop"));

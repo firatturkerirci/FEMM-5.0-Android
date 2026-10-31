@@ -163,9 +163,11 @@ void PyConsole::writeRaw(const char *s, int n)
             emit scriptRunningChanged(true);
         }
     }
+    const QString text = QString::fromUtf8(s, n);
+    emit outputWritten(text);
     QTextCursor c(m_term->document());
     c.movePosition(QTextCursor::End);
-    c.insertText(QString::fromUtf8(s, n));
+    c.insertText(text);
     m_term->setTextCursor(c);
     m_term->verticalScrollBar()->setValue(m_term->verticalScrollBar()->maximum());
 }

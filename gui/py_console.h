@@ -48,6 +48,8 @@ public:
 
 signals:
     void scriptRunningChanged(bool running);
+    // Everything the interpreter writes (print, tracebacks), as it arrives.
+    void outputWritten(const QString &text);
 
 private:
     ConsoleEdit *m_term = nullptr;

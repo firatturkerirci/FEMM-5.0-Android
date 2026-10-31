@@ -24,6 +24,7 @@ class ResultsWidget;
 class ScalarResultsWidget;
 class OutputDialog;
 class PyConsole;
+class ScriptPanel;
 
 class MainWindow : public QMainWindow
 {
@@ -101,6 +102,8 @@ private slots:
     void onSubWindowActivated(QMdiSubWindow *sub);
 
 public:
+    ScriptPanel *scriptPanel() const { return m_scriptPanel; }
+
     // Sync the postprocessor View-menu / toolbar checkmarks to the given
     // active widget (a ResultsWidget or ScalarResultsWidget). Called both
     // on document load, on tab switch, and from script view command handlers.
@@ -216,6 +219,7 @@ private:
     // Left toolbars (shared)
     QToolBar *m_leftScript = nullptr;
     PyConsole *m_pyConsole = nullptr;
+    ScriptPanel *m_scriptPanel = nullptr;
     QToolBar *m_leftNav = nullptr;
 
     // Track which UI is currently shown

@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/femm">
+    <file alias="ai_prompt.md">resources/ai_prompt.md</file>
+  </qresource>
+</RCC>

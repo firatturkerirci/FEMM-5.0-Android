@@ -44,16 +44,18 @@ set(FEMM_GUI_SOURCES
     output_dialog.cpp
     copy_move_dialog.cpp
     arc_dialog.cpp
+    script_panel.cpp
     icons.qrc
+    script_panel.qrc
     $<$<PLATFORM_ID:Windows>:femm.rc>
 )
 
 if(ANDROID)
-    # Qt for Android builds the app as a shared library inside an APK. The
-    # target is finalized at the end of the top-level CMakeLists.txt, once the
-    # solver targets exist and can be listed as extra native libraries.
-    qt_add_executable(femm_gui MANUAL_FINALIZATION
-        ${FEMM_GUI_SOURCES} android_support.cpp)
+    # Qt for Android builds the app as a shared library inside an APK, with
+    # the solvers packaged beside it (android/AndroidPackage.cmake).
+    qt_add_executable(femm_gui ${FEMM_GUI_SOURCES} android_support.cpp)
+    include("${CMAKE_SOURCE_DIR}/android/AndroidPackage.cmake")
+    femm_android_package(femm_gui fkn belasolv hsolv csolv)
 else()
     add_executable(femm_gui ${FEMM_GUI_SOURCES})
 endif()

@@ -452,7 +452,7 @@ if(NOT ANDROID)
 install(TARGETS femm_headless fkn belasolv hsolv csolv lua
         RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 endif()
-if(TARGET femm_gui)
+if(TARGET femm_gui AND NOT ANDROID)
     # BUNDLE DESTINATION is not optional on macOS. femm_gui sets MACOSX_BUNDLE
     # (gui/CMakeLists.txt), and CMake REFUSES to configure an install() of a
     # bundle target that has no BUNDLE DESTINATION -- "install TARGETS given no
@@ -559,12 +559,4 @@ if(UNIX AND NOT APPLE)
                    "${CMAKE_CURRENT_BINARY_DIR}/femm-qt.desktop" @ONLY)
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/femm-qt.desktop"
             DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
-endif()
-
-# =====================================================================
-#  Android: package the solvers into the APK and finalize the app target.
-# =====================================================================
-if(ANDROID AND TARGET femm_gui)
-    include("${CMAKE_SOURCE_DIR}/android/AndroidPackage.cmake")
-    femm_android_package(femm_gui fkn belasolv hsolv csolv)
 endif()
