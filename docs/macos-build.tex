@@ -1,0 +1,443 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    framerule=0.5pt,
+    breaklines=true,
+    showstringspaces=false,
+    language=bash,
+    morekeywords={brew,cmake,ninja,git,cd,mkdir}
+}
+
+\title{Building femm-qt on macOS}
+\author{D.\ Meeker}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Overview}
+
+femm-qt is a cross-platform port of FEMM (Finite Element Method Magnetics)
+using Qt~6 for the GUI and CMake/Ninja for the build system.  This document
+describes how to build it from source on macOS (Intel or Apple Silicon).
+
+The build produces six executables:
+\begin{itemize}[nosep]
+  \item \texttt{femm\_gui} --- the main GUI application
+  \item \texttt{femm\_headless} --- headless IPC server (no GUI)
+  \item \texttt{fkn} --- magnetics solver
+  \item \texttt{belasolv} --- electrostatics solver
+  \item \texttt{hsolv} --- heat flow solver
+  \item \texttt{csolv} --- current flow solver
+\end{itemize}
+
+\section{Prerequisites}
+
+\subsection{Xcode Command Line Tools}
+
+Install the Apple compiler toolchain (Clang, make, git, etc.) from Terminal:
+\begin{lstlisting}
+xcode-select --install
+\end{lstlisting}
+Follow the prompts to complete the installation.  This provides
+\texttt{clang++}, \texttt{git}, and standard system headers.
+
+\subsection{Homebrew}
+
+If not already installed, install the Homebrew package manager:
+\begin{lstlisting}
+/bin/bash -c "$(curl -fsSL \
+    https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+\end{lstlisting}
+Follow the post-install instructions to add Homebrew to your \texttt{PATH}.
+
+\subsection{CMake and Ninja}
+
+\begin{lstlisting}
+brew install cmake ninja
+\end{lstlisting}
+
+\subsection{Qt 6}
+
+Install Qt~6 via Homebrew:
+\begin{lstlisting}
+brew install qt@6
+\end{lstlisting}
+Homebrew installs Qt to a prefix such as \texttt{/opt/homebrew/opt/qt@6}
+(Apple Silicon) or \texttt{/usr/local/opt/qt@6} (Intel).  Note this path;
+it is needed for the CMake configure step.
+
+To find your Qt prefix:
+\begin{lstlisting}
+brew --prefix qt@6
+\end{lstlisting}
+
+\section{Getting the Source}
+
+If you have a source zip, unzip it:
+\begin{lstlisting}
+unzip femm-qt-src.zip
+cd femm-qt
+\end{lstlisting}
+
+Or, if the source is hosted on GitHub, clone the repository:
+\begin{lstlisting}
+git clone <repository-url> femm-qt
+cd femm-qt
+\end{lstlisting}
+
+\section{Building}
+
+From the \texttt{femm-qt} directory, run the build script:
+\begin{lstlisting}
+./macos_build.sh
+\end{lstlisting}
+
+This checks that the build tools are present, locates Qt~6 via
+Homebrew, configures the project with CMake, and builds it with Ninja.
+The GUI is produced as a macOS application bundle
+(\texttt{build/bin/femm\_gui.app}), and the script then assembles
+everything else into it: the solvers, \texttt{femm\_headless}, the Lua~4
+interpreter, the Python scripting assets, the examples, the language
+bindings, the manual and the material libraries.  \texttt{macdeployqt}
+bundles the Qt frameworks.
+
+The bundle is the \emph{only} place anything runs from on macOS.  The
+loose copies CMake leaves in \texttt{build/bin} are deleted once they
+have been copied in, so that a stray \texttt{build/bin/femm\_headless}
+--- which would resolve its solvers and material libraries from the
+wrong directory --- cannot be run by accident.  The regression suite and
+the language bindings both reach into the bundle.
+
+The material libraries are a special case, because the material editor
+writes them and a signed bundle cannot be written to.  Read-only copies
+ship in \texttt{Contents/Resources}, and FEMM copies them to
+\texttt{\textasciitilde/Library/Application Support/FEMM/} the first time
+they are used; that is where your edits go, and they are shared by every
+copy of FEMM on the machine.
+
+To wipe the build directory and rebuild from scratch, pass
+\texttt{clean}:
+\begin{lstlisting}
+./macos_build.sh clean
+\end{lstlisting}
+
+If the build fails because CMake cannot find Qt~6, see
+\textit{Manual configuration} under Troubleshooting.
+
+\section{Running}
+
+Launch the GUI by double-clicking \texttt{femm\_gui.app} in Finder, or
+from Terminal:
+\begin{lstlisting}
+open build/bin/femm_gui.app
+\end{lstlisting}
+
+Or the headless server (for scripted/IPC use).  It lives inside the
+bundle, beside the GUI:
+\begin{lstlisting}
+./build/bin/femm_gui.app/Contents/MacOS/femm_headless
+\end{lstlisting}
+
+\subsection{How the bindings find FEMM}
+
+\textbf{Usually they need nothing set at all.}  All six bindings ---
+OctaveFEMM, MathFEMM, SciFEMM, JuliaFEMM, pyFEMM and luaFEMM --- look for
+\texttt{femm\_gui} and \texttt{femm\_headless} in four places, in order:
+
+\begin{enumerate}
+\item \texttt{FEMM\_DIR}, if it is set;
+\item beside the binding's own directory, which covers a source tree ---
+      CMake links \texttt{femm\_gui.app} into \texttt{build/bin}, and that
+      is what makes a checkout work with nothing configured;
+\item every directory on \texttt{PATH};
+\item \texttt{/Applications} and
+      \texttt{\textasciitilde/Applications}.
+\end{enumerate}
+
+The last of those is the macOS case: programs here live in
+\texttt{/Applications} rather than on \texttt{PATH}, so a bundle dragged
+there is found on its own.  In each directory the bindings try
+\texttt{femm\_gui.app/Contents/MacOS/}\emph{name} as well as the bare
+name, which is how they reach inside a bundle, and it is why one entry
+serves both a GUI session (\texttt{openfemm()}) and a headless one
+(\texttt{openfemm(1)}) --- both executables sit in there together.
+
+Set \texttt{FEMM\_DIR} only to say \emph{which} copy, when you keep more
+than one:
+\begin{lstlisting}
+export FEMM_DIR=/path/to/femm-qt/build/bin
+\end{lstlisting}
+Enter it exactly as shown --- one line, no spaces around the \texttt{=}
+--- and put it in your \texttt{\textasciitilde/.zshrc} to make it
+persistent.  Being first in the list, it beats everything else.
+
+The binding files themselves ship twice: read-only inside the bundle at
+\texttt{Contents/Resources/bindings}, and as a plain
+\texttt{\textasciitilde/FEMM/bindings} folder if you dragged
+\texttt{FEMM} out of the disk image.  Use the second --- Finder will not
+browse into a \texttt{.app}, and Octave and Julia need a real path.  Both
+hold \texttt{mfiles} for OctaveFEMM, with \texttt{mathfemm},
+\texttt{scifemm}, \texttt{juliafemm}, \texttt{pyfemm} and
+\texttt{luafemm} beside it.
+
+\section{Setting Up OctaveFEMM}
+
+OctaveFEMM drives FEMM from Octave (or MATLAB) over a local socket, and uses
+Java to make that connection.  On a clean macOS machine the setup is:
+
+\begin{enumerate}
+\item \textbf{Install Octave} via Homebrew:
+\begin{lstlisting}
+brew install octave
+\end{lstlisting}
+
+\item \textbf{Install a JDK.}  OctaveFEMM's socket bridge needs a Java
+runtime, and Homebrew's Octave does not bundle one.  Install the Adoptium
+Temurin JDK --- either download it from \url{https://adoptium.net} or, more
+simply, install it with Homebrew:
+\begin{lstlisting}
+brew install --cask temurin
+\end{lstlisting}
+
+\item \textbf{Set \texttt{JAVA\_HOME}} in your
+\texttt{\textasciitilde/.zshrc}, resolved dynamically with
+\texttt{java\_home} so it survives JDK updates:
+\begin{lstlisting}
+export JAVA_HOME="$(/usr/libexec/java_home)"
+\end{lstlisting}
+Open a new terminal (or run \texttt{source \textasciitilde/.zshrc})
+afterward so it takes effect.  \texttt{FEMM\_DIR} is \emph{not} needed:
+OctaveFEMM finds the application by itself (see ``How the bindings find
+FEMM'' above).  Set it only if you keep several copies of FEMM and need
+to choose between them.
+
+\item \textbf{Add the m-files to Octave's path.}  Start Octave and run, once:
+\begin{lstlisting}
+addpath('~/FEMM/bindings/mfiles');
+savepath;
+\end{lstlisting}
+or, working from a source tree,
+\verb+addpath('/path/to/femm-qt/octavefemm')+.  \texttt{savepath} records
+the directory in your Octave preferences so you do not have to re-add it
+every session.
+
+This is a \emph{different} search path from the one in the previous
+section, and the two are easy to confuse.  Octave's path is how Octave
+finds \texttt{openfemm.m}; the search described above is how
+\texttt{openfemm.m} then finds the FEMM application.  Only the second is
+automatic.
+\end{enumerate}
+
+To verify, run \texttt{openfemm} at the Octave prompt: the FEMM window should
+appear and connect.  Use \texttt{openfemm(1)} for a headless session (no
+window), which talks to \texttt{femm\_headless} instead.
+
+\section{Packaging a Disk Image}
+
+To wrap the built bundle in a draggable \texttt{.dmg}:
+\begin{lstlisting}
+packaging/macos_dmg.sh
+\end{lstlisting}
+
+When a Developer ID is configured this script also signs, notarises and
+staples the image; see \textit{Signing and notarisation} below.  To build
+and package in one step, use \texttt{packaging/macos\_release.sh}
+instead, which runs both scripts in the order that matters.
+
+This is a separate step from the build, in the same way that running
+Inno Setup is separate from compiling on Windows.  The bundle has to
+exist to run and to test; a disk image is only needed to hand FEMM to
+someone else.  The script refuses to run if \texttt{femm\_gui.app} is
+missing, incomplete, or stale --- the last of those catches a
+\texttt{ninja} that relinked the GUI without reassembling the bundle
+around it.
+
+The image is written to \texttt{packaging/output/} and opens to four
+things: the application, a symlink to \texttt{/Applications}, a
+\texttt{FEMM} folder, and a \texttt{Read Me}.  Installing is two drags ---
+the app onto \texttt{Applications}, and \texttt{FEMM} onto the user's
+\texttt{Documents} folder:
+\begin{lstlisting}
+~/FEMM/examples    models and scripts, every language
+~/FEMM/docs        the manual and the per-binding guides
+~/FEMM/bindings    the client files for other programs
+\end{lstlisting}
+
+The home folder rather than \texttt{\textasciitilde/Documents}, which is
+where the Linux install puts the same tree, and the difference is
+deliberate.  macOS protects \texttt{Documents}, \texttt{Desktop} and
+\texttt{Downloads} through TCC: a program that opens a file there under
+its own steam --- as opposed to one you picked in an open panel --- needs
+consent first.  An application with a window can ask for it, and
+\texttt{femm\_gui} does; a process without one generally just fails with
+\emph{Operation not permitted}.  Worse, an app that fails that way without
+prompting never appears in \textbf{Files \& Folders} in System Settings,
+so there is no obvious way to grant it afterwards --- Octave does exactly
+this.  Since driving FEMM from Octave, MATLAB, Python or a shell script is
+most of what it is for, the home folder, which TCC does not cover, avoids
+the whole business.  It also keeps a directory full of solver output from
+being synced to iCloud.
+
+It is one folder rather than three at the top level because three would
+be three things to drag and three things to forget.  It has to leave the
+bundle at all because the bundle is read-only once signed: an example
+script does \verb+open("model.fem")+ and then
+\verb+mi_saveas("temp.fem")+, both relative to its own directory, and an
+analysis writes the model back before solving.  None of that works inside
+the application.
+
+The \texttt{Read Me} is the macOS stand-in for what the Linux installer
+prints when it finishes: what to drag where, the \texttt{addpath} line for
+each language, where the material libraries are kept
+(\texttt{\textasciitilde/Library/Application Support/FEMM/}, so they
+survive an upgrade), and how to uninstall.
+
+That folder is not a duplicate of the copy inside the bundle, and the
+distinction matters.  Example scripts open a model and immediately save
+it under another name, so that the original is never modified:
+\begin{lstlisting}
+open("Roters-Ch9Fig6.fem")
+mi_saveas("temp.fem")
+\end{lstlisting}
+Both paths are relative to the script's own directory, which is where
+FEMM sets the working directory when it runs a script.  Inside the
+bundle that directory is read-only and the save fails, so drag the
+\texttt{Examples} folder somewhere of your own and work there.  The
+read-only copy inside the bundle is a master, kept so the examples
+survive throwing the disk image away.
+
+\subsection{Signing and notarisation}
+
+With nothing configured, \texttt{macos\_build.sh} applies an ad-hoc
+signature.  That is enough to build, run and test on your own machine,
+and it is what an ordinary build still does --- no Apple account is
+needed to work on FEMM.  It is \emph{not} enough for a disk image handed
+to anyone else: downloaded from the internet, an ad-hoc signed
+application is refused by Gatekeeper as coming from an unidentified
+developer.
+
+Distributing to others needs an Apple Developer ID.  Two environment
+variables turn it on, and the arrangement mirrors
+\texttt{packaging/pack.bat} on Windows --- nothing account-specific is
+committed, and leaving them unset changes nothing:
+
+\begin{center}
+\begin{tabular}{ll}
+\hline
+\textbf{set} & \textbf{result} \\
+\hline
+nothing & ad-hoc; the everyday build \\
+\texttt{FEMM\_SIGN\_ID} & Developer ID, hardened runtime, secure timestamp \\
+\quad + \texttt{FEMM\_NOTARY\_PROFILE} & notarised and stapled as well \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{lstlisting}
+export FEMM_SIGN_ID="Developer ID Application: Your Name (TEAMID)"
+export FEMM_NOTARY_PROFILE=femm-notary
+\end{lstlisting}
+
+The notary profile is created once, interactively, and then lives in the
+keychain.  It asks for an app-specific password from
+\texttt{appleid.apple.com}, not for your Apple ID password:
+\begin{lstlisting}
+xcrun notarytool store-credentials femm-notary \
+      --apple-id you@example.com --team-id TEAMID
+\end{lstlisting}
+
+With both set, one command cuts a release --- the counterpart of
+\texttt{packaging/pack.bat}.  It resolves the identity and checks the
+credentials \emph{before} building anything, so a misconfigured release
+fails in the first second rather than after a full build:
+\begin{lstlisting}
+packaging/macos_release.sh
+\end{lstlisting}
+
+Signing is inside-out rather than \texttt{codesign -{}-deep}: every
+nested Mach-O first, the \texttt{.app} last, because each signature
+seals what is beneath it.  This is not a stylistic preference.
+\texttt{-{}-deep} is deprecated for signing and a bundle signed that way
+can fail notarisation; and because \texttt{Contents/MacOS} is the code
+directory, the 54 Python and text files staged there are code objects
+too, which \texttt{-{}-deep} had been signing silently into extended
+attributes.  They are signed explicitly now.  Notarisation accepts that
+layout, which is why \texttt{python/} and \texttt{pybridge-worker/} can
+stay where they are.
+
+No entitlements are needed.  There is no JIT, and the garbage collector
+is built with \texttt{GC\_DISABLE\_INCREMENTAL}, so no \texttt{SIGSEGV}
+or Mach exception handler is ever installed --- those are the two things
+that usually force an entitlement under the hardened runtime.
+
+Notarisation is a queue on Apple's side, and 25 minutes per submission
+is normal rather than a hang; there are two submissions, the application
+and the image.  \texttt{FEMM\_NOTARY\_TIMEOUT} (default \texttt{1h})
+bounds the wait, and reaching it does not cancel the submission.
+
+\section{Troubleshooting}
+
+\subsection{Manual configuration}
+
+The build script wraps the CMake/Ninja steps and assembles the app
+bundle.  The order of the bundling steps matters: \texttt{macdeployqt}
+must run \emph{before} the solvers and data files are copied in (it scans
+\texttt{MacOS/} and aborts on the \texttt{.dat} files otherwise), and the
+bundle must be re-signed afterward.  The material libraries are the one
+thing FEMM writes beside itself, so they are seeded read-only into
+Contents/Resources/ and copied into the user's Application Support
+folder on first use; a signed bundle is never written to.
+To run the steps by hand:
+\begin{lstlisting}
+mkdir build && cd build
+cmake .. -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6)"
+ninja
+APP=bin/femm_gui.app/Contents/MacOS
+RES=bin/femm_gui.app/Contents/Resources
+# 1. Bundle Qt frameworks FIRST, while the bundle holds only femm_gui.
+$(brew --prefix qt@6)/bin/macdeployqt bin/femm_gui.app
+# 2. Copy the solvers and the headless engine in afterward:
+for s in fkn belasolv hsolv csolv femm_headless; do
+    cp bin/$s "$APP/"
+done
+# 3. Material libraries: read-only SEEDS in Resources/, not MacOS/.
+#    FEMM copies them to ~/Library/Application Support/FEMM/ on first
+#    use and reads and writes them there, so nothing is ever written
+#    inside the bundle.
+mkdir -p "$RES" && cp ../matlibs/*.dat "$RES/"
+# 4. Re-seal the bundle with a deep ad-hoc signature:
+codesign --force --deep --sign - bin/femm_gui.app
+\end{lstlisting}
+The \texttt{macos\_build.sh} script is the authoritative, commented version
+of this procedure.
+
+\subsection{Qt not found}
+
+If CMake reports that it cannot find Qt6, verify the prefix path:
+\begin{lstlisting}
+brew --prefix qt@6
+\end{lstlisting}
+Pass the result to \texttt{-DCMAKE\_PREFIX\_PATH}.
+
+\subsection{Permission denied on first run}
+
+macOS Gatekeeper may block unsigned applications.  If you see a
+``cannot be opened because the developer cannot be verified'' dialog,
+go to System Settings $\rightarrow$ Privacy \& Security and click
+``Allow Anyway,'' or remove the quarantine attribute:
+\begin{lstlisting}
+xattr -dr com.apple.quarantine build/bin/femm_gui.app
+\end{lstlisting}
+
+\end{document}

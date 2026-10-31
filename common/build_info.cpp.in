@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2026 David Meeker and contributors
+//
+// GENERATED FILE -- do not edit. Edit common/build_info.cpp.in instead; this
+// copy is rewritten by cmake/BuildInfo.cmake on every build. See build_info.h
+// for why the build number is stamped in rather than compiled in.
+#include "build_info.h"
+
+const char *femm_version() { return "@FEMM_VERSION@"; }
+const char *femm_build()   { return "@FEMM_BUILD@"; }

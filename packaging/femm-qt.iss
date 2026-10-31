@@ -1,0 +1,481 @@
+; -- femm-qt.iss --
+; Inno Setup script for FEMM 5.0 (Qt port)
+
+#define MyYear GetDateTimeString('yyyy', '', '')
+; FemmVersion and FemmBuild (the build number), written by the build from
+; project(VERSION) and the commit count -- see cmake/BuildInfo.cmake.
+; Run ninja first (pack.bat already requires it) or this include fails.
+#include "..\build\generated\version.iss"
+
+[Setup]
+AppName           = FEMM
+AppVersion        = {#FemmVersion}
+AppVerName        = femm {#FemmVersion} (build {#FemmBuild})
+AppCopyright      = Copyright © 1998-{#MyYear}, DC Meeker
+AppPublisher      = D. Meeker
+DefaultDirName    = c:\femm-qt
+DefaultGroupName  = femm 5.0
+UsePreviousAppDir = no
+UsePreviousGroup  = no
+LicenseFile       = ..\packaging\license.txt
+OutputBaseFilename= femm-{#FemmVersion}-{#FemmBuild}
+; This script lives in femm-qt\packaging\.  Relative [Files]/[Dirs] paths
+; are resolved against SourceDir; "bin\..." -> build\bin, "..\foo" ->
+; femm-qt\foo, exactly as when the script lived in build\.  The finished
+; installer is written to femm-qt\packaging\output\.
+SourceDir         = ..\build
+OutputDir         = ..\packaging\output
+ChangesEnvironment= yes
+PrivilegesRequired= lowest
+PrivilegesRequiredOverridesAllowed= dialog
+
+; -- Authenticode signing (Azure Trusted Signing), OFF unless asked for ------
+; pack.bat passes /DSIGN together with /Ssigntool=<command> when the signing
+; environment variables are set. Without them ISCC runs exactly as before and
+; produces an unsigned installer, so a build needs no Azure account.
+;
+; SignTool names the command registered on the ISCC command line -- it is NOT
+; a path to signtool.exe. Keep the name in step with pack.bat.
+;
+; SignedUninstaller signs the uninstaller Inno generates at install time.
+; Without it the installer is signed and the uninstaller it writes is not,
+; which is the more confusing half to leave unsigned.
+#ifdef SIGN
+SignTool          = signtool
+SignedUninstaller = yes
+#endif
+
+[Tasks]
+; Optional, OFF by default. Adds {app}\bin to PATH so femm-lua, the solvers,
+; and femm_gui can be run by bare name from any folder. Purely command-line
+; convenience, and it is removed again on uninstall (see [Code]).
+;
+; It is NOT how anything finds anything. femm_gui, femm_headless and the four
+; solvers resolve their own assets relative to their own executable (exeDir()
+; in libfemm/script_callbacks.cpp) and read no environment variable at all.
+; The LANGUAGE BINDINGS are the only thing that needs telling, and FEMM_DIR --
+; set unconditionally in [Registry] below -- is what tells them. They will
+; also search PATH as a last resort, but since this task is off by default
+; that is not something a Windows install can rely on; FEMM_DIR is.
+Name: "addtopath"; Description: "Add femm-qt to the PATH (run femm-lua and the CLI solvers from any folder)"; Flags: unchecked
+
+[Dirs]
+Name: "{app}\bin"
+Name: "{app}\bin\platforms"
+Name: "{app}\bin\styles"
+Name: "{app}\bin\imageformats"
+Name: "{app}\bin\iconengines"
+Name: "{app}\bin\python"
+Name: "{app}\bin\pybridge-worker"
+Name: "{app}\examples"
+Name: "{app}\mfiles"
+Name: "{app}\mathfemm"
+
+[InstallDelete]
+; Before 2026-10 the file-format references were installed loose in {app}\docs;
+; they now live in {app}\docs\formats. An upgrade would otherwise leave the old
+; copies beside the new folder.
+Type: files; Name: "{app}\docs\*-file-formats.pdf"
+; MathFEMM-Demo2.nb shipped until 2026-10 and was then removed (it carried a
+; dead 2004 contact address); an upgrade would otherwise keep the old copy.
+Type: files; Name: "{app}\examples\MathFEMM-Demo2.nb"
+
+[Files]
+; FEMM executables
+Source: "bin\femm_gui.exe";                 DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "bin\femm_headless.exe";            DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "bin\femm_headlessw.exe";            DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "bin\fkn.exe";                      DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "bin\belasolv.exe";                 DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "bin\hsolv.exe";                    DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "bin\csolv.exe";                    DestDir: "{app}\bin"; Flags: ignoreversion
+
+; Lua 4 legacy scripting client (interpreter)
+Source: "bin\lua4.exe";                     DestDir: "{app}\bin"; Flags: ignoreversion
+
+; Qt runtime DLLs (in bin alongside the exe)
+Source: "C:\Qt\6.10.3\mingw_64\bin\Qt6Core.dll";          DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "C:\Qt\6.10.3\mingw_64\bin\Qt6Gui.dll";           DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "C:\Qt\6.10.3\mingw_64\bin\Qt6Widgets.dll";       DestDir: "{app}\bin"; Flags: ignoreversion
+
+; MinGW runtime DLLs
+Source: "C:\Qt\6.10.3\mingw_64\bin\libgcc_s_seh-1.dll";   DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "C:\Qt\6.10.3\mingw_64\bin\libstdc++-6.dll";      DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "C:\Qt\6.10.3\mingw_64\bin\libwinpthread-1.dll";  DestDir: "{app}\bin"; Flags: ignoreversion
+
+; Qt platform plugin (required for any Qt GUI app on Windows)
+Source: "C:\Qt\6.10.3\mingw_64\plugins\platforms\qwindows.dll";          DestDir: "{app}\bin\platforms"; Flags: ignoreversion
+
+; Qt style plugin (native Windows look)
+Source: "C:\Qt\6.10.3\mingw_64\plugins\styles\qmodernwindowsstyle.dll";  DestDir: "{app}\bin\styles"; Flags: ignoreversion
+
+; Qt image format plugins (for icons, bitmaps)
+Source: "C:\Qt\6.10.3\mingw_64\plugins\imageformats\qico.dll";          DestDir: "{app}\bin\imageformats"; Flags: ignoreversion
+Source: "C:\Qt\6.10.3\mingw_64\plugins\imageformats\qjpeg.dll";         DestDir: "{app}\bin\imageformats"; Flags: ignoreversion
+Source: "C:\Qt\6.10.3\mingw_64\plugins\imageformats\qgif.dll";          DestDir: "{app}\bin\imageformats"; Flags: ignoreversion
+Source: "C:\Qt\6.10.3\mingw_64\plugins\imageformats\qsvg.dll";          DestDir: "{app}\bin\imageformats"; Flags: ignoreversion
+
+; Qt SVG icon engine (if icons use SVG)
+Source: "C:\Qt\6.10.3\mingw_64\plugins\iconengines\qsvgicon.dll";       DestDir: "{app}\bin\iconengines"; Flags: ignoreversion
+Source: "C:\Qt\6.10.3\mingw_64\bin\Qt6Svg.dll";                         DestDir: "{app}\bin"; Flags: ignoreversion
+
+; Material libraries. These are now read-only SEEDS: the copy FEMM reads and
+; writes lives per-user in %APPDATA%\FEMM (libfemm/material_lib_path.h), and it
+; is created the first time the user presses OK in the Material Library dialog.
+;
+; confirmoverwrite stays anyway, for the UPGRADE from a version that kept the
+; live library here. Such a user has edits in {app}\bin and no %APPDATA% copy
+; yet, so a silent overwrite would destroy them before they had ever forked.
+; Declining keeps the edited file, reads still resolve to it, and the next
+; dialog OK migrates those edits into %APPDATA% intact.
+;
+; The cost of declining is that {app}\bin keeps the OLD shipped library, so FEMM
+; sees nothing new to offer and that user will not be told about new stock
+; materials until an install they accept. Once everyone has migrated these can
+; become plain ignoreversion, which is what a pure seed wants.
+Source: "..\matlibs\matlib.dat";                   DestDir: "{app}\bin"; Flags: confirmoverwrite
+Source: "..\matlibs\statlib.dat";                  DestDir: "{app}\bin"; Flags: confirmoverwrite
+Source: "..\matlibs\heatlib.dat";                  DestDir: "{app}\bin"; Flags: confirmoverwrite
+Source: "..\matlibs\condlib.dat";                  DestDir: "{app}\bin"; Flags: confirmoverwrite
+
+; Lua 4 legacy scripting client (binding, launcher, third-party notices)
+Source: "..\luafemm\femm.lua";                     DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\luafemm\femm-lua.bat";                 DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\lua\liblua\COPYRIGHT";                 DestDir: "{app}\bin"; DestName: "Lua-COPYRIGHT.txt";       Flags: ignoreversion
+Source: "..\lua\luasocket-1.0\COPYRIGHT";          DestDir: "{app}\bin"; DestName: "LuaSocket-COPYRIGHT.txt"; Flags: ignoreversion
+
+; Python-side scripting assets.  init_py() puts exeDir()+"python" on sys.path,
+; so that directory holds the pure-Python stdlib modules (datetime), the
+; PyBridge client, and the matplotlib forwarding shims.  The CPython worker
+; gets a directory of its own, for the two shadowing reasons spelled out in
+; libfemm/CMakeLists.txt -- do not merge them.
+;
+; Wildcards rather than a line per file: the shim set grows, and a shim that
+; was added but not listed here fails at import in front of a user rather than
+; at build time.  __pycache__ is excluded because a CPython process that reads
+; python/ leaves .pyc files of MicroPython source behind -- junk to ship.
+Source: "bin\python\*";          DestDir: "{app}\bin\python";          Excludes: "__pycache__"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "bin\pybridge-worker\*"; DestDir: "{app}\bin\pybridge-worker"; Excludes: "__pycache__"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; Documentation
+Source: "..\manual\manual.pdf";                DestDir: "{app}\bin"; Flags: ignoreversion
+
+; The file-format references, one per physics. These describe the on-disk
+; layout of .fem/.fee/.feh/.fec -- every keyword, in the order written -- and
+; are what someone writing a third-party tool, a mesh importer or a batch
+; generator needs. They existed as .tex in docs/ since before this port and
+; had never been built or listed here, so they reached nobody.
+;
+; Their own folder rather than {app}\bin, because they are reference material
+; a user opens rather than something the program loads, and four of them flat
+; beside the licences would bury the manual. docs\formats rather than docs
+; itself since the material-library papers joined them (below); the [InstallDelete]
+; entry removes the copies an older installer left loose in {app}\docs.
+Source: "..\docs\magnetics-file-formats.pdf";      DestDir: "{app}\docs\formats"; Flags: ignoreversion
+Source: "..\docs\electrostatics-file-formats.pdf"; DestDir: "{app}\docs\formats"; Flags: ignoreversion
+Source: "..\docs\heatflow-file-formats.pdf";       DestDir: "{app}\docs\formats"; Flags: ignoreversion
+Source: "..\docs\currentflow-file-formats.pdf";    DestDir: "{app}\docs\formats"; Flags: ignoreversion
+; The provenance papers behind every entry in the four material libraries
+; (CC BY 4.0, from the vendored release in provenance\), with matlibs\README.md
+; as the folder's index: it says which papers cover which library and states
+; the libraries' licence. Flat, not in the release's per-paper folders, which
+; exist for its scripts. THIS LIST IS THE ONE THE OTHER PLATFORMS USE:
+; packaging/stage_extras.sh reads every "{app}\docs\..." line here, so a paper
+; added here ships everywhere. It must also be named in femm-qt/.gitignore, or
+; it is never committed for this line to find.
+Source: "..\provenance\ceramic\ceramiccurves.pdf";                    DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\cobalt-iron\cofecurves.pdf";                   DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\iron\ironcurves.pdf";                          DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\libraries\provenance\condlib_provenance.pdf";  DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\libraries\provenance\heatlib_provenance.pdf";  DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\libraries\provenance\statlib_provenance.pdf";  DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\low-carbon\bhcurves.pdf";                      DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\magnets\AlnicoProperties.pdf";                 DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\magnets\BondedNdFeB.pdf";                      DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\magnets\SinteredNdFeBProperties.pdf";          DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\magnets\SmCoProperties.pdf";                   DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\metglas\metglascurves.pdf";                    DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\nickel-iron\nifecurves.pdf";                   DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\silicon\sicurves.pdf";                         DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\provenance\stainless\sscurves.pdf";                       DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\matlibs\README.md";                          DestDir: "{app}\docs\materials"; Flags: ignoreversion
+Source: "..\LICENSE-MIT";                   DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\LICENSE-GPL";                   DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\NOTICE-Qt.txt";                 DestDir: "{app}\bin"; Flags: ignoreversion
+; Third-party MIT notices (compiled into the binaries)
+Source: "..\micropython\LICENSE.micropython"; DestDir: "{app}\bin"; DestName: "LICENSE-MicroPython.txt"; Flags: ignoreversion
+Source: "..\micropython\ulab\LICENSE";      DestDir: "{app}\bin"; DestName: "LICENSE-ulab.txt"; Flags: ignoreversion
+Source: "..\third_party\bdwgc\LICENSE";   DestDir: "{app}\bin"; DestName: "LICENSE-bdwgc.txt"; Flags: ignoreversion
+Source: "..\QT-THIRD-PARTY-NOTICES.txt"; DestDir: "{app}\bin"; DestName: "QT-THIRD-PARTY-NOTICES.txt"; Flags: ignoreversion
+; The fullest of the copies (each pylib package carries one so that a stray
+; copy of the directory is still a compliant copy); this is the one a user
+; browsing bin\ should find.
+Source: "..\pylib\vendor\LICENSE.micropython-lib"; DestDir: "{app}\bin"; DestName: "LICENSE-micropython-lib.txt"; Flags: ignoreversion
+Source: "..\LICENSE-melihaltun.txt";        DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\readme.txt";                    DestDir: "{app}"    ; Flags: ignoreversion isreadme
+
+; Example files
+Source: "..\examples\RadialMagneticBearing.fem";    DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\CoggingTorque.fem";            DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\SpeakerMotor.fem";             DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\Roters-Ch9Fig6.fem";           DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\Force-vs-Position.lua";        DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\DoubleSidedLIM.fem";           DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\ThrustBearing.fem";            DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\TEAMProblem28.fem";            DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\KelvinTransformation.fem";     DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\tutorial.fem" ;                DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\ProximityExact.fem" ;          DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\ProximityApprox.fem"  ;        DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\bdemo1.fee";                   DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\bdemo2.fee";                   DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\htutor.feh";                   DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\ACElec2.fec";                  DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\ACElec2a.fec";                 DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\ACElec3.fec";                  DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\cond_layer.FEC";               DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\lrk.fem";                      DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\IABC.fem";                     DestDir: "{app}\examples"; Flags: ignoreversion
+
+; Python examples and the models they open. Added 2026-08-22: these were
+; all tracked in the repository but had never been listed here, so the
+; Python scripting the port is built around shipped with no examples.
+Source: "..\examples\2horse_femm42.py";                     DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\ACElec2.py";                           DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\Force-vs-Position.py";                 DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\coilgun.py";                           DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\mySPMLossScriptAGB.py";                DestDir: "{app}\examples"; Flags: ignoreversion
+; The SPM core-loss script in all four forms it exists in. The _fast twin is
+; the reason: it is the only worked example of the BULK GETTERS anywhere in
+; the distribution. mo_getallelements() hands back four typed arrays in one
+; call, where the plain version asks mo_getpointvalues once per element per
+; rotor position -- about two million round trips over a full spin. Shipping
+; the pair is what makes that visible, since the interesting part is the
+; difference between them rather than either one alone, and the difference is
+; not subtle: measured through octavefemm on the same machine and model, 7.5
+; seconds per rotor position the plain way against 0.47 with the bulk getters.
+; Around 22 minutes for a full spin, against 85 seconds.
+;
+; Both languages, because the audience differs: the .py runs inside femm-qt
+; with nothing installed, the .m is the MATLAB/Octave original it was
+; translated from. All four open my_SPM_motor_AGB.fem, which already ships.
+;
+; Sourced from examples\ rather than octavefemm\examples\, unlike the other
+; five .m here. That directory holds an older standalone copy of _fast.m;
+; these are the pair added as the originals behind the .py translations
+; (234c652), so they belong together and match what the Python reads like.
+Source: "..\examples\mySPMLossScriptAGB_fast.py";           DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\mySPMLossScriptAGB.m";                 DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\mySPMLossScriptAGB_fast.m";            DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\open1.py";                             DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\plot-mesh-matplotlib.py";              DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\2horse_femm42.lua";                    DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\ACElec2.lua";                          DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\2horse.fem";                           DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\coil.fem";                             DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\coilgun.fem";                          DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\examples\my_SPM_motor_AGB.fem";                 DestDir: "{app}\examples"; Flags: ignoreversion
+
+; OctaveFEMM / MATLAB interface
+Source: "..\octavefemm\manual\octavefemm.pdf";              DestDir: "{app}"; Flags: ignoreversion
+Source: "..\octavefemm\octavefemm.md";                     DestDir: "{app}"; Flags: ignoreversion
+Source: "..\octavefemm\examples\demo2.m";                   DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\octavefemm\examples\roters1b.m";                DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\octavefemm\examples\roters1b.fem";              DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\octavefemm\examples\strips.m";                  DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\octavefemm\examples\htutor.m";                  DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\octavefemm\examples\ACElec2.m";                 DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\octavefemm\*.m";                                DestDir: "{app}\mfiles"; Flags: ignoreversion
+
+; MathFEMM (Mathematica interface)
+Source: "..\mathfemm\mathfemm.m";                    DestDir: "{app}\mathfemm"; Flags: ignoreversion;
+Source: "..\mathfemm\usage.nb";                      DestDir: "{app}";          Flags: ignoreversion;
+Source: "..\mathfemm\examples\roters1b.nb";          DestDir: "{app}\examples"; Flags: ignoreversion;
+Source: "..\mathfemm\examples\strips.nb";            DestDir: "{app}\examples"; Flags: ignoreversion;
+Source: "..\mathfemm\examples\htutor.nb";            DestDir: "{app}\examples"; Flags: ignoreversion;
+
+; Scilab interface
+Source: "..\scifemm\scifemm.sci";                    DestDir: "{app}\scifemm";  Flags: ignoreversion
+Source: "..\scifemm\examples\demo2.sce";             DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\scifemm\examples\roters1b.sce";          DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\scifemm\examples\strips.sce";            DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\scifemm\examples\htutor.sce";            DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\scifemm\examples\ACElec2.sce";           DestDir: "{app}\examples"; Flags: ignoreversion
+
+; Julia interface
+Source: "..\juliafemm\juliafemm.jl";                  DestDir: "{app}\juliafemm";  Flags: ignoreversion
+Source: "..\juliafemm\examples\demo2.jl";             DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\juliafemm\examples\coilgun.jl";           DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\juliafemm\examples\roters1b.jl";          DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\juliafemm\examples\strips.jl";            DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\juliafemm\examples\htutor.jl";            DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\juliafemm\examples\ACElec2.jl";           DestDir: "{app}\examples"; Flags: ignoreversion
+
+; Python interface. Windows shipped five of the six bindings; this was the
+; missing one, which also left pyfemm.md nothing to document -- it opens with
+; "install from a checkout" and names a directory that did not exist here.
+; femm.py is a single file with no dependencies, so `pip install -e` against
+; {app}\pyfemm works, as does simply putting it on sys.path. When pyfemm-qt
+; reaches PyPI that becomes the easier route, and this copy stops mattering.
+Source: "..\pyfemm\femm.py";                          DestDir: "{app}\pyfemm";  Flags: ignoreversion
+Source: "..\pyfemm\pyproject.toml";                   DestDir: "{app}\pyfemm";  Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\pyfemm\pyfemm.md";                        DestDir: "{app}\pyfemm";  Flags: ignoreversion
+
+; pyFEMM's examples go in a directory of their OWN, and are the only examples
+; that do. Every other binding's examples are told apart by their extension --
+; .m, .jl, .sce, .lua -- so they can share {app}\examples harmlessly. Python
+; has two incompatible kinds of .py and no way to tell them apart by name:
+;
+;   {app}\examples\ACElec2.py    runs INSIDE femm-qt's script console; the
+;                                commands are globals and it opens with
+;                                create(3)
+;   here \ACElec2.py             runs under CPython and drives femm-qt over
+;                                TCP; it opens with import femm / openfemm()
+;
+; Two of them even share a basename (ACElec2.py, coilgun.py), so one would
+; simply overwrite the other in a flat directory. Worse than the collision is
+; that the survivor fails confusingly in whichever runtime it was not meant
+; for. Putting these beside femm.py says which is which by where it is, which
+; is the one thing an extension cannot say -- and it is where someone using
+; the binding is already looking, since pyfemm.md points at {app}\pyfemm.
+;
+; The set matches juliafemm's, which already made this call: the six tutorials
+; ship, and Phase3 and ReturnErrorMsg do not (the latter is four lines that
+; call a nonexistent command on purpose -- a diagnostic, not a tutorial).
+; All six were run headless before being listed here.
+Source: "..\pyfemm\examples\ACElec2.py";              DestDir: "{app}\pyfemm\examples"; Flags: ignoreversion
+Source: "..\pyfemm\examples\coilgun.py";              DestDir: "{app}\pyfemm\examples"; Flags: ignoreversion
+Source: "..\pyfemm\examples\demo2.py";                DestDir: "{app}\pyfemm\examples"; Flags: ignoreversion
+Source: "..\pyfemm\examples\htutor.py";               DestDir: "{app}\pyfemm\examples"; Flags: ignoreversion
+Source: "..\pyfemm\examples\roters1b.py";             DestDir: "{app}\pyfemm\examples"; Flags: ignoreversion
+Source: "..\pyfemm\examples\strips.py";               DestDir: "{app}\pyfemm\examples"; Flags: ignoreversion
+; The two models these scripts OPEN, rather than build. They duplicate copies
+; under {app}\examples on purpose: a script resolves its model relative to its
+; own directory, so a shared copy one level up would not be found, and an
+; example that cannot find its model is worse than no example. The other four
+; scripts build their geometry and save it, so they need nothing here.
+Source: "..\pyfemm\examples\coilgun.fem";             DestDir: "{app}\pyfemm\examples"; Flags: ignoreversion
+Source: "..\pyfemm\examples\roters1b.fem";            DestDir: "{app}\pyfemm\examples"; Flags: ignoreversion
+
+; Lua 4 interface. The functional client (lua4.exe, femm.lua, femm-lua.bat)
+; ships in {app}\bin above, because femm-lua.bat loads femm.lua / lua4.exe from
+; its own directory and points FEMM_DIR there — so they must all sit together in
+; bin. Here we only add the docs and examples (no second femm.lua copy in
+; {app}\luafemm, which would be orphaned and could drift from the bin copy).
+Source: "..\luafemm\README.md";                       DestDir: "{app}\luafemm";  Flags: ignoreversion
+Source: "..\luafemm\femm-lua.pdf";                    DestDir: "{app}\luafemm";  Flags: ignoreversion
+Source: "..\luafemm\examples\ac_magnetics.lua";       DestDir: "{app}\examples"; Flags: ignoreversion
+Source: "..\luafemm\examples\coilgun.lua";            DestDir: "{app}\examples"; Flags: ignoreversion
+
+[Icons]
+Name: "{group}\FEMM 5.0"; Filename: "{app}\bin\femm_gui.exe";       WorkingDir: "{app}\examples"
+Name: "{group}\Manual";   Filename: "{app}\bin\manual.pdf"
+Name: "{group}\Tutorial-Magnetic";       Filename: "http://www.femm.info/wiki/MagneticsTutorial"
+Name: "{group}\Tutorial-Electrostatic";  Filename: "http://www.femm.info/wiki/ElectrostaticsTutorial"
+Name: "{group}\Tutorial-Heat Flow";      Filename: "http://www.femm.info/wiki/HeatFlowTutorial"
+Name: "{group}\OctaveFEMM Manual"; Filename: "{app}\octavefemm.pdf"; WorkingDir: "{app}"
+Name: "{group}\MathFEMM Manual";   Filename: "{app}\usage.nb";       WorkingDir: "{app}"
+Name: "{group}\Lua Scripting Guide"; Filename: "{app}\luafemm\femm-lua.pdf"; WorkingDir: "{app}\luafemm"
+Name: "{group}\femm-lua (Lua console)"; Filename: "{app}\bin\femm-lua.bat"; WorkingDir: "{app}\examples"
+
+[Registry]
+; Set FEMM_DIR so the language bindings can find the executables -- all six
+; of them: octavefemm, mathfemm, scifemm, juliafemm, pyfemm and luafemm.
+; Points to the bin directory where femm_headless.exe lives. Unconditional,
+; because the PATH task above is off by default and each binding's other
+; fallbacks (beside itself, then PATH) reach nothing in this layout.
+; "Install for all users" -> HKLM system environment (admin)
+; "Install for me only"   -> HKCU user environment (no admin)
+Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; \
+    ValueType: string; ValueName: "FEMM_DIR"; ValueData: "{app}\bin"; \
+    Flags: uninsdeletevalue; Check: IsAdminInstallMode
+Root: HKCU; Subkey: "Environment"; \
+    ValueType: string; ValueName: "FEMM_DIR"; ValueData: "{app}\bin"; \
+    Flags: uninsdeletevalue; Check: not IsAdminInstallMode
+
+[Code]
+// Notify Windows that environment variables have changed so new shells pick them up
+const
+    WM_SETTINGCHANGE = $001A;
+    SMTO_ABORTIFHUNG = $0002;
+    // PATH lives in the system environment for an all-users install and the
+    // per-user environment otherwise -- the same split the FEMM_DIR entries use.
+    PathKeyHKLM = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment';
+    PathKeyHKCU = 'Environment';
+
+function SendMessageTimeout(hWnd: HWND; Msg: UINT; wParam: LongInt; lParam: string;
+    fuFlags: UINT; uTimeout: UINT; out lpdwResult: DWORD): LongInt;
+    external 'SendMessageTimeoutW@user32.dll stdcall';
+
+// Pick the PATH registry location for this install's scope.
+procedure PathLocation(var RootKey: Integer; var SubKey: string);
+begin
+    if IsAdminInstallMode then begin
+        RootKey := HKEY_LOCAL_MACHINE;
+        SubKey := PathKeyHKLM;
+    end else begin
+        RootKey := HKEY_CURRENT_USER;
+        SubKey := PathKeyHKCU;
+    end;
+end;
+
+// Append Dir to PATH if not already present (case-insensitive). Reads and
+// rewrites as REG_EXPAND_SZ so existing %VAR% references are preserved.
+procedure EnvAddPath(Dir: string);
+var
+    RootKey: Integer;
+    SubKey, Paths: string;
+begin
+    PathLocation(RootKey, SubKey);
+    if not RegQueryStringValue(RootKey, SubKey, 'Path', Paths) then
+        Paths := '';
+    // Already there? Bracket both sides with ';' so we match whole entries only.
+    if Pos(';' + Uppercase(Dir) + ';', ';' + Uppercase(Paths) + ';') > 0 then
+        exit;
+    if Paths = '' then
+        Paths := Dir
+    else
+        Paths := Paths + ';' + Dir;
+    RegWriteExpandStringValue(RootKey, SubKey, 'Path', Paths);
+end;
+
+// Remove Dir from PATH if present -- only our own segment, never the whole
+// variable (so uninsdeletevalue must NOT be used for PATH). We always append at
+// the end, so on uninstall the entry is normally the last one.
+procedure EnvRemovePath(Dir: string);
+var
+    RootKey: Integer;
+    SubKey, Paths: string;
+    P: Integer;
+begin
+    PathLocation(RootKey, SubKey);
+    if not RegQueryStringValue(RootKey, SubKey, 'Path', Paths) then
+        exit;
+    P := Pos(';' + Uppercase(Dir) + ';', ';' + Uppercase(Paths) + ';');
+    if P = 0 then exit;
+    if P = 1 then
+        Delete(Paths, 1, Length(Dir) + 1)       // Dir was the first entry: drop "Dir;"
+    else
+        Delete(Paths, P - 1, Length(Dir) + 1);  // drop ";Dir"
+    RegWriteExpandStringValue(RootKey, SubKey, 'Path', Paths);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+    Res: DWORD_PTR;
+begin
+    if (CurStep = ssPostInstall) and WizardIsTaskSelected('addtopath') then
+        EnvAddPath(ExpandConstant('{app}') + '\bin');
+    if CurStep = ssDone then
+        SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, 'Environment', SMTO_ABORTIFHUNG, 5000, Res);
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+    Res: DWORD_PTR;
+begin
+    if CurUninstallStep = usPostUninstall then begin
+        EnvRemovePath(ExpandConstant('{app}') + '\bin');
+        SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, 'Environment', SMTO_ABORTIFHUNG, 5000, Res);
+    end;
+end;

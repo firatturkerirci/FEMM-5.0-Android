@@ -1,0 +1,469 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    framerule=0.5pt,
+    breaklines=true,
+    showstringspaces=false,
+    language=bash,
+    morekeywords={sudo,apt,cmake,ninja,git,cd,mkdir,export}
+}
+
+\title{Building femm-qt on Linux}
+\author{D.\ Meeker}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Overview}
+
+femm-qt is a cross-platform port of FEMM (Finite Element Method Magnetics)
+using Qt~6 for the GUI and CMake/Ninja for the build system.  This document
+describes how to build it from source on Linux.  The instructions target
+Ubuntu 24.04~LTS but should work with minor changes on other distributions
+(Debian, Fedora, Arch, etc.).
+
+The build produces six executables:
+\begin{itemize}[nosep]
+  \item \texttt{femm\_gui} --- the main GUI application
+  \item \texttt{femm\_headless} --- headless IPC server (no GUI)
+  \item \texttt{fkn} --- magnetics solver
+  \item \texttt{belasolv} --- electrostatics solver
+  \item \texttt{hsolv} --- heat flow solver
+  \item \texttt{csolv} --- current flow solver
+\end{itemize}
+
+\section{Prerequisites}
+
+\subsection{Build Tools}
+
+Install the compiler toolchain, CMake, Ninja, and git:
+\begin{lstlisting}
+sudo apt update
+sudo apt install build-essential cmake ninja-build git
+\end{lstlisting}
+This provides \texttt{g++}, \texttt{cmake}, \texttt{ninja}, and \texttt{git}.
+
+\subsection{Qt 6}
+
+Install the Qt~6 development libraries:
+\begin{lstlisting}
+sudo apt install qt6-base-dev libqt6widgets6
+\end{lstlisting}
+On Ubuntu 24.04, this installs Qt~6.4 or later from the standard
+repositories.  No separate Qt installer or online account is needed.
+
+To verify the installation:
+\begin{lstlisting}
+qmake6 --version
+\end{lstlisting}
+
+\subsection{Other Distributions}
+
+On Fedora:
+\begin{lstlisting}
+sudo dnf install gcc-c++ cmake ninja-build git qt6-qtbase-devel
+\end{lstlisting}
+
+On Arch Linux:
+\begin{lstlisting}
+sudo pacman -S base-devel cmake ninja git qt6-base
+\end{lstlisting}
+
+\section{Getting the Source}
+
+If you have a source zip, unzip it:
+\begin{lstlisting}
+unzip femm-qt-src.zip
+cd femm-qt
+\end{lstlisting}
+
+Or, if the source is hosted on GitHub, clone the repository:
+\begin{lstlisting}
+git clone <repository-url> femm-qt
+cd femm-qt
+\end{lstlisting}
+
+\section{Building}
+
+From the \texttt{femm-qt} directory, run the build script:
+\begin{lstlisting}
+./linux_build.sh
+\end{lstlisting}
+
+This checks that the build tools are present, configures the project
+with CMake, and builds it with Ninja.  All executables are placed in
+\texttt{build/bin/}.
+
+To wipe the build directory and rebuild from scratch, pass
+\texttt{clean}:
+\begin{lstlisting}
+./linux_build.sh clean
+\end{lstlisting}
+
+If the build fails because CMake cannot find Qt~6, see
+\textit{Manual configuration} under Troubleshooting.
+
+\section{Installing}
+
+You can run femm-qt from \texttt{build/bin} indefinitely; nothing requires
+an install.  To put it somewhere permanent instead:
+\begin{lstlisting}
+./linux_build.sh install
+\end{lstlisting}
+
+This installs what is already built --- it does not rebuild --- into your
+home directory:
+\begin{lstlisting}
+~/.local/opt/femm-qt/   the program, its solvers, the material
+                        libraries, the bindings, and a pristine
+                        set of the examples
+~/.local/bin/           femm_gui, femm_headless, the four solvers
+                        (fkn, belasolv, hsolv, csolv), lua4, and
+                        femm-lua
+~/.local/share/         menu entry and icon
+~/Documents/FEMM/
+       examples/        your copy of the examples
+       docs/            the manual and the scripting references
+\end{lstlisting}
+
+The solvers are linked as commands of their own because each is usable
+that way: \texttt{fkn model} solves \texttt{model.fem} and writes
+\texttt{model.ans}, with \texttt{belasolv}, \texttt{hsolv} and
+\texttt{csolv} doing the same for electrostatics, heat flow and current
+flow --- which is what you want from a Makefile or a batch queue.
+\texttt{lua4} is a stock Lua 4 interpreter and runs directly too.
+
+The examples are installed twice on purpose.  The program directory is out
+of the way --- and on Ubuntu worse than that, since the file manager hides
+\texttt{\textasciitilde/.local} outright --- so a second copy goes somewhere
+you can actually open, under whatever your desktop calls \emph{Documents}.
+The shipped examples in it are replaced on every install, so that a
+corrected example reaches you rather than only new users --- and because
+\emph{running} an example rewrites its \texttt{.fem} (analysis saves the
+document first), which makes any ``has this been edited?'' test useless
+here.  Anything else you keep in that directory is untouched: only the
+files femm-qt ships are written.  Work in a copy, which is what every
+example script does on its second line.
+
+FEMM then appears in the application menu.  For \texttt{femm\_gui} to work
+as a command, \texttt{\textasciitilde/.local/bin} has to be on your
+\texttt{PATH}, and \textbf{the installer does not put it there without being
+asked}.  Your shell startup files are your configuration --- kept in a
+dotfiles repository, synced between machines, or managed for you on an
+institutional login --- and an installer editing one uninvited produces a
+confusing diff at best and a change that is silently reverted at worst.
+
+So it checks, and tells you.  If the directory is already on \texttt{PATH}
+it says nothing at all.  On Debian and Ubuntu the stock
+\texttt{\textasciitilde/.profile} already adds
+\texttt{\textasciitilde/.local/bin} when it exists, so it will be there at
+your next login and the installer leaves well alone.  Otherwise it prints
+the one line to add and which file to add it to.
+
+If you would rather it did the edit, ask for it:
+\begin{lstlisting}
+./linux_build.sh install --modify-path
+\end{lstlisting}
+which appends a single marked block, once --- running it again finds the
+block and adds nothing.
+
+Which file that is depends on your shell, and so does when the change takes
+effect.  \texttt{\textasciitilde/.profile} is read at login by the desktop
+session, and every terminal inherits the environment from there, so a bash
+or \texttt{sh} user must log out and back in --- opening a new terminal
+window is \emph{not} enough.  \texttt{\textasciitilde/.zshrc} and fish's
+\texttt{config.fish} are read by every interactive shell, so there a new
+terminal really is sufficient.  Under \texttt{csh} or \texttt{tcsh} nothing
+is written at all: those read none of these files and use a different syntax
+entirely, so the installer prints the \texttt{set path} line for
+\texttt{\textasciitilde/.cshrc} rather than leave a line that would never run.
+
+Whatever you do, it cannot fix the shell you ran it from --- no program can
+change the environment of the shell that launched it.
+
+Pass a different prefix if you would rather it went elsewhere:
+\begin{lstlisting}
+./linux_build.sh install /opt/femm
+\end{lstlisting}
+
+It installs into your home rather than \texttt{/usr/local} on purpose,
+and it \emph{refuses to run as root}.  This script sets up one user's
+environment: besides the program directory it puts examples and documents
+in your home folder and can edit your shell profile.  Run under
+\texttt{sudo} those would land in \texttt{/root} while the program itself
+was shared, so every other user on the machine would get a program with
+no examples and no documents --- and it would look as though it had
+worked.
+
+For a system-wide install, or to build a distribution package, use the
+CMake install rules instead:
+\begin{lstlisting}
+cmake --install build --prefix /usr/local
+\end{lstlisting}
+
+\noindent That produces an ordinary \texttt{bin/} and
+\texttt{share/femm/} layout and honours \texttt{DESTDIR}.  It is safe
+where this script is not because nothing FEMM writes lives in the
+installation any more: your material libraries and your own Python
+modules are kept per-user, under
+\texttt{\textasciitilde/.local/share/FEMM/}, and are found there at run
+time.
+
+\subsection*{Uninstalling}
+
+\begin{lstlisting}
+./linux_build.sh uninstall
+\end{lstlisting}
+
+It removes the program directory, the commands, the menu entry, the icon
+and the documents, and takes out the \texttt{PATH} line if it was the one
+that added it.  Pass the same prefix you installed with if it was not the
+default, and \texttt{-y} to skip the confirmation.
+
+It works from a manifest the install leaves in the program directory
+rather than from a list of paths worked out afresh, because several of
+those paths are not reliably re-derivable later --- which solver
+commands were linked, whether a profile was edited, and above all where
+the documents went, since that comes from \texttt{xdg-user-dir} and can
+be reconfigured.  A program directory with no manifest is refused rather
+than guessed at, and a command in \texttt{\textasciitilde/.local/bin}
+that does not point into the program directory is left alone: a name
+like \texttt{lua4} could easily belong to something else.
+
+Your copy of the examples is never removed.  Those are yours, an install
+never overwrites them, and a script that deletes a directory somebody has
+been working in is not one to run casually.
+
+\section{Running}
+
+Launch the GUI:
+\begin{lstlisting}
+./bin/femm_gui
+\end{lstlisting}
+
+Or the headless server:
+\begin{lstlisting}
+./bin/femm_headless
+\end{lstlisting}
+
+
+If you installed as above, use the copies on your \texttt{PATH} instead,
+from any directory:
+\begin{lstlisting}
+femm_gui
+femm_headless
+\end{lstlisting}
+
+\subsection{Setting FEMM\_DIR}
+
+The language bindings (OctaveFEMM, MathFEMM, pyFEMM, JuliaFEMM) locate
+the FEMM executables via the \texttt{FEMM\_DIR} environment variable.
+\textbf{If you installed, you can skip this.}  Each binding looks for
+\texttt{femm\_gui} and \texttt{femm\_headless} in three places, in order:
+\texttt{FEMM\_DIR}, then beside its own directory, then \emph{every
+directory on \texttt{PATH}} --- and the install puts them on
+\texttt{PATH}.  So the bindings work with nothing set at all.
+
+\texttt{FEMM\_DIR} remains the way to override that, which is what you
+want when running from a build tree that was never installed, or when you
+have more than one build and need to say which:
+\begin{lstlisting}
+export FEMM_DIR=/path/to/femm-qt/build/bin
+\end{lstlisting}
+Add it to your login profile to make it persistent.  Being first in the
+list, it beats both the relative search and \texttt{PATH}.
+
+The binding files themselves are in \texttt{bindings/} under the program
+directory --- \texttt{mfiles} for OctaveFEMM, and \texttt{mathfemm},
+\texttt{scifemm}, \texttt{juliafemm}, \texttt{pyfemm} and
+\texttt{luafemm} beside it.
+
+\subsection{Desktop Integration (Optional)}
+
+\emph{The \texttt{install} step above does this for you, with an icon.}
+The recipe below is for running in place out of \texttt{build/bin}.
+
+To add femm-qt to your application menu, create a \texttt{.desktop} file:
+\begin{lstlisting}
+cat > ~/.local/share/applications/femm-qt.desktop << 'EOF'
+[Desktop Entry]
+Name=FEMM
+Comment=Finite Element Method Magnetics
+Exec=/path/to/femm-qt/build/bin/femm_gui
+Type=Application
+Categories=Science;Engineering;
+EOF
+\end{lstlisting}
+
+\section{Using with MATLAB or Octave}
+
+\subsection{Octave}
+
+Install Octave and its Java support:
+\begin{lstlisting}
+sudo apt install octave default-jdk
+\end{lstlisting}
+Note that in Ubuntu, the version of Octave installed by App Center does \textit{not} have Java support, so the installation by \texttt{apt}, which does have Java support, is needed.
+Find the path to Java by typing:
+\begin{lstlisting}
+readlink -f $(which java)
+\end{lstlisting}
+at the Bash command line.  This usually returns something like: 
+\begin{lstlisting}
+/usr/lib/jvm/java-21-openjdk-amd64/bin/java
+\end{lstlisting}
+Edit your \verb+~/.bashrc+ file and add as the last line:
+\begin{lstlisting}
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+\end{lstlisting}
+(\texttt{FEMM\_DIR} used to be needed here as well.  It no longer is:
+\texttt{openfemm} searches \texttt{PATH} for \texttt{femm\_gui} and
+\texttt{femm\_headless}, and an install puts them there.  Set it only to
+choose between several builds.)
+Run Octave and confirm that Java is running by typing
+\begin{lstlisting}
+version -java
+\end{lstlisting}
+at the Octave prompt.  It should return something like: 
+\\ \\
+\begin{small} \texttt{ans =  Java 21.0.10+7-Ubuntu-124.04 with Ubuntu OpenJDK 64-Bit Server VM mixed mode, sharing} \end{small} \\
+which indicates that Java is properly installed.  Then add the path to the the OctaveFEMM mfiles to Octave by typing the following at the Octave command line:
+\begin{lstlisting}
+addpath("~/.local/opt/femm-qt/bindings/mfiles")
+savepath
+\end{lstlisting}
+or, if you did not install and are working from the source tree,
+\verb+addpath("/path/to/femm-qt/octavefemm")+.  \texttt{savepath} is what
+makes it stick; \texttt{\textasciitilde/.octaverc} does the same job.
+
+This is a \emph{different} search path from the one above, and the two are
+easy to confuse.  Octave's path is how Octave finds \texttt{openfemm.m};
+the system \texttt{PATH} is how \texttt{openfemm.m} then finds
+\texttt{femm\_gui}.  Only the second is automatic.  The install prints the
+\texttt{addpath} line for every language when it finishes.
+
+There is a fuller OctaveFEMM guide in
+\texttt{\textasciitilde/Documents/FEMM/docs/octavefemm.md}, installed
+alongside the manual.
+
+\subsection{MATLAB}
+
+MATLAB on Linux uses its bundled JRE for socket communication with
+femm-qt, which should work without additional configuration.
+
+As with Octave, the executables are found on \texttt{PATH} and need no
+setting up; what MATLAB needs is the OctaveFEMM mfiles on \emph{its} path,
+through \verb+pathtool+ or
+\verb+addpath('~/.local/opt/femm-qt/bindings/mfiles')+.  If you keep more
+than one build and need to say which, set \texttt{FEMM\_DIR} --- before
+launching MATLAB, or from inside it:
+\begin{lstlisting}
+setenv('FEMM_DIR', '/path/to/femm-qt/build/bin')
+\end{lstlisting}
+
+\subsection{Python}
+
+The Python interface is/will be available as pyfemm-qt.  Install it via:
+\begin{lstlisting}
+pip install pyfemm-qt
+\end{lstlisting}
+To install the version that came with this source instead, change to the
+\verb+pyfemm+ directory --- in the source tree, or
+\verb+~/.local/opt/femm-qt/bindings/pyfemm+ after an install --- and type:
+\begin{lstlisting}
+pip install -e .
+\end{lstlisting}
+\texttt{-e} records the \emph{absolute path} of that directory, so an
+editable install breaks if the directory is later moved or deleted.  Point
+it at the installed copy, not at a build tree you might clean.
+
+Without installing at all, \verb+sys.path.append+ on the same directory
+works just as well, since pyfemm is a single file with no dependencies.
+On Ubuntu 24.04 and later, pip may refuse to install into the system
+Python with an ``externally-managed-environment'' error.  Since pyfemm
+is a single file with no dependencies, it is safe to override this:
+\begin{lstlisting}
+pip install -e . --break-system-packages
+\end{lstlisting}
+A fuller pyFEMM guide --- multi-instance use, headless mode, connecting to
+an instance that is already running --- is installed at
+\texttt{\textasciitilde/Documents/FEMM/docs/pyfemm.md}.
+
+\section{Troubleshooting}
+
+\subsection{Manual configuration}
+
+The build script just wraps the standard CMake and Ninja steps.  To run
+them by hand:
+\begin{lstlisting}
+mkdir build && cd build
+cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
+ninja
+\end{lstlisting}
+CMake finds Qt~6 from the system packages automatically.  If it does
+not, pass the Qt prefix explicitly:
+\begin{lstlisting}
+cmake .. -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt6
+\end{lstlisting}
+
+\subsection{Qt not found}
+
+If CMake reports that it cannot find Qt6, check that the development
+package is installed:
+\begin{lstlisting}
+dpkg -l | grep qt6-base-dev
+\end{lstlisting}
+If installed but not found, pass \texttt{-DCMAKE\_PREFIX\_PATH} pointing
+to the Qt~6 CMake config directory, typically
+\texttt{/usr/lib/x86\_64-linux-gnu/cmake/Qt6}.
+
+\subsection{Missing OpenGL headers}
+
+On minimal server installations or VMs without a desktop environment,
+Qt may require OpenGL development headers:
+\begin{lstlisting}
+sudo apt install libgl1-mesa-dev libglu1-mesa-dev
+\end{lstlisting}
+
+\subsection{VirtualBox Guest Additions}
+
+If running in a VirtualBox VM, install Guest Additions for proper display
+scaling and shared folders:
+\begin{lstlisting}
+sudo apt install virtualbox-guest-utils \
+    virtualbox-guest-x11
+\end{lstlisting}
+Reboot after installation.  For shared folders, add your user to the
+\texttt{vboxsf} group:
+\begin{lstlisting}
+sudo usermod -aG vboxsf $USER
+\end{lstlisting}
+
+\subsection{MESA / OpenGL errors in VirtualBox}
+
+VirtualBox's virtual GPU may not support the OpenGL version Qt expects,
+producing errors like ``ZINK: failed to choose pdev'' or ``failed to
+create dri2 screen.''  Two fixes:
+
+\begin{enumerate}[nosep]
+\item Enable 3D Acceleration in VirtualBox (Settings $\rightarrow$
+      Display $\rightarrow$ check ``Enable 3D Acceleration'' and move the slider to at least 128MB video memory out in Expert mode), or
+\item Force Qt to use software rendering by adding
+\begin{lstlisting}
+export LIBGL_ALWAYS_SOFTWARE=1
+\end{lstlisting}
+to \verb+~/.bashrc+
+\end{enumerate}
+
+\end{document}

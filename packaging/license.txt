@@ -1,0 +1,68 @@
+MIT License
+
+Copyright (c) 2026 David Meeker and contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+
+NOTE: FEMM 5.0 is distributed under more than one license.
+
+  * The FEMM application -- the GUI, the libfemm engine, the IPC server, the
+    tangle mesher, the shared math, and the language bindings -- is under the
+    MIT License above (a copy is installed as LICENSE-MIT).
+
+  * The finite element field solvers (fkn, belasolv, hsolv, csolv) are under
+    the GNU General Public License, version 3 or later (a copy is installed as
+    LICENSE-GPL).
+
+The SPDX-License-Identifier tag at the top of each source file is the
+authoritative statement of that file's license.
+
+Bundled third-party components keep their own licenses; the full texts are
+installed alongside the program in the bin\ directory:
+
+  * Qt (LGPL-3.0)                                          -- NOTICE-Qt.txt
+  * MicroPython (MIT, Copyright (c) 2013-2026
+    Damien P. George)                                     -- LICENSE-MicroPython.txt
+  * ulab (MIT, Copyright (c) 2019 Zoltan Voros)           -- LICENSE-ulab.txt
+  * the Boehm-Demers-Weiser garbage collector (X11-style,
+    Copyright (c) 1988-2025 Hans-J. Boehm, Alan J. Demers,
+    Xerox, Silicon Graphics, Hewlett-Packard and
+    Ivan Maidanski)                                       -- LICENSE-bdwgc.txt
+  * the pure-Python standard-library modules (datetime, itertools,
+    operator, shutil, tempfile, copy, contextlib, fnmatch,
+    functools, traceback, types), from micropython-lib
+    (MIT, Copyright (c) 2013, 2014 micropython-lib
+    contributors)                                         -- LICENSE-micropython-lib.txt
+
+    Those are used unmodified. Where FEMM adds to one, the addition is a
+    separate file beside it (an __init__.py next to the upstream _core.py)
+    and is FEMM's own, under the MIT License above. csv and glob are FEMM's
+    entirely -- micropython-lib has neither.
+  * the complex eigen-decomposition in common/fullmatrix.cpp, adapted from
+    melihaltun/complexEigenPairSolver
+    (MIT, Copyright (c) 2018 melihaltun)                  -- LICENSE-melihaltun.txt
+
+This program is built with the MinGW-w64 GCC toolchain and redistributes its
+runtime libraries: libgcc and libstdc++ (GNU GPL v3 with the GCC
+Runtime Library Exception, which permits this distribution; source available at
+gcc.gnu.org) and libwinpthread (part of the MinGW-w64 runtime, under permissive
+terms; see mingw-w64.org). No part of the FEMM source is covered by these
+licenses.
