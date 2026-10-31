@@ -118,21 +118,43 @@ jobs:
 
       - name: Sign the APK
         env:
-          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          # One secret: the password of android/release.keystore.enc (and of
+          # the key inside it). With it every build has the same signature, so
+          # a new APK installs over the old one and keeps the user's files.
+          FEMM_KEYSTORE_PASSWORD: ${{ secrets.FEMM_KEYSTORE_PASSWORD }}
         run: |
           UNSIGNED=$(find build-android -name "*release-unsigned.apk" | head -1)
           [ -n "$UNSIGNED" ] || UNSIGNED=$(find build-android -name "*.apk" | head -1)
           echo "input: $UNSIGNED"
-          if [ -n "$KEYSTORE_B64" ]; then
-            echo "$KEYSTORE_B64" | base64 -d > release.keystore
+          KEY_ALIAS=femm
+          # First run after the secret is added: make the release key, encrypt it
+          # with the secret and commit it, so every later build finds it. Only
+          # the arm64 job does this; the x86_64 (test) APK just waits for it.
+          if [ -n "$FEMM_KEYSTORE_PASSWORD" ] && [ ! -f android/release.keystore.enc ] \
+             && [ "${{ matrix.abi }}" = "arm64-v8a" ]; then
+            keytool -genkeypair -keystore new.keystore -storepass "$FEMM_KEYSTORE_PASSWORD" \
+              -keypass "$FEMM_KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" -keyalg RSA -keysize 3072 \
+              -validity 20000 -dname "CN=FEMM for Android" > /dev/null
+            openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in new.keystore \
+              -out android/release.keystore.enc -pass env:FEMM_KEYSTORE_PASSWORD
+            rm -f new.keystore
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add android/release.keystore.enc
+            git commit -m "Add the encrypted release key (made by CI from FEMM_KEYSTORE_PASSWORD)"
+            git push origin "HEAD:${GITHUB_REF_NAME}" || echo "::warning::could not commit the release key"
+            echo "release key created and committed"
+          fi
+          if [ -n "$FEMM_KEYSTORE_PASSWORD" ] && [ -f android/release.keystore.enc ]; then
+            KEYSTORE_PASS="$FEMM_KEYSTORE_PASSWORD"
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in android/release.keystore.enc \
+              -out release.keystore -pass env:FEMM_KEYSTORE_PASSWORD
+            echo "signing with the release key"
           else
-            # No release key configured: sign with a throwaway key so the APK
+            # No password configured: sign with a throwaway key so the APK
             # installs. Updating over it needs an uninstall first.
-            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; signing with a temporary key"
+            echo "::warning::FEMM_KEYSTORE_PASSWORD is not set; signing with a temporary key"
             KEYSTORE_PASS=android
-            KEY_ALIAS=femm
             keytool -genkeypair -keystore release.keystore -storepass "$KEYSTORE_PASS" \
               -keypass "$KEYSTORE_PASS" -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 \
               -validity 10000 -dname "CN=FEMM Android CI" > /dev/null

@@ -92,6 +92,8 @@ static QIcon icon(const char *name)
 {
     const QString path = QString(":/icons/%1.png").arg(name);
     if (!femmTabletMode()) return QIcon(path);
+    const QIcon modern = femmTabletIcon(QString::fromLatin1(name));
+    if (!modern.isNull()) return modern;
     // The toolbar icons are 16x15 bitmaps and QIcon never scales a pixmap up,
     // so on a tablet they stayed tiny inside the bigger buttons. Double them,
     // pixel for pixel, so they stay crisp and look like FEMM's own.

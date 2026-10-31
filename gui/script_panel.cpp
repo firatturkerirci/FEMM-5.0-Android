@@ -7,6 +7,7 @@
 #include "py_console.h"
 #include "py_state.h"
 #include "build_info.h"
+#include "tablet_mode.h"
 #ifdef __ANDROID__
 #include "android_support.h"
 #endif
@@ -246,15 +247,15 @@ ScriptPanel::ScriptPanel(PyConsole *console, QWidget *parent)
 
     auto *buttons = new QGridLayout;
     buttons->setSpacing(4);
-    m_runBtn = makeButton(tr("Run"), tr("Save the script into the work folder and run it"));
-    m_stopBtn = makeButton(tr("Stop"), tr("Interrupt the running script"));
-    auto *pasteBtn = makeButton(tr("Paste"), tr("Replace the script with the clipboard text"));
-    auto *openBtn = makeButton(tr("Open"), tr("Open a .py file"));
-    auto *saveBtn = makeButton(tr("Save"), tr("Save the script to a file"));
+    m_runBtn = makeButton(tr("Run"), tr("Save the script into the work folder and run it"), "run");
+    m_stopBtn = makeButton(tr("Stop"), tr("Interrupt the running script"), "stop");
+    auto *pasteBtn = makeButton(tr("Paste"), tr("Replace the script with the clipboard text"), "paste");
+    auto *openBtn = makeButton(tr("Open"), tr("Open a .py file"), "open_file");
+    auto *saveBtn = makeButton(tr("Save"), tr("Save the script to a file"), "save");
     m_copyErrBtn = makeButton(tr("Copy Error"),
-        tr("Copy the last error, with the nearby lines, to paste into an AI assistant"));
+        tr("Copy the last error, with the nearby lines, to paste into an AI assistant"), "copyerror");
     auto *promptBtn = makeButton(tr("AI Prompt"),
-        tr("Copy a description of FEMM's scripting environment to paste into an AI assistant"));
+        tr("Copy a description of FEMM's scripting environment to paste into an AI assistant"), "aiprompt");
     QFont bf = m_runBtn->font();
     bf.setBold(true);
     m_runBtn->setFont(bf);
@@ -339,12 +340,21 @@ ScriptPanel::ScriptPanel(PyConsole *console, QWidget *parent)
     showStatus(tr("Work folder: %1").arg(QDir::toNativeSeparators(workDir())), false);
 }
 
-QToolButton *ScriptPanel::makeButton(const QString &text, const QString &tip)
+QToolButton *ScriptPanel::makeButton(const QString &text, const QString &tip,
+                                     const char *iconName)
 {
     auto *b = new QToolButton(this);
     b->setText(text);
     b->setToolTip(tip);
     b->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    if (femmTabletMode() && iconName) {
+        const QIcon ic = femmTabletIcon(QString::fromLatin1(iconName));
+        if (!ic.isNull()) {
+            b->setIcon(ic);
+            b->setIconSize(QSize(22, 22));
+            b->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        }
+    }
     b->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     b->setMinimumHeight(kButtonHeight);
     return b;

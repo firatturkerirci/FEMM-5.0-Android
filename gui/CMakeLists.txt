@@ -47,6 +47,7 @@ set(FEMM_GUI_SOURCES
     script_panel.cpp
     icons.qrc
     script_panel.qrc
+    tablet_icons.qrc
     $<$<PLATFORM_ID:Windows>:femm.rc>
 )
 

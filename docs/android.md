@@ -70,18 +70,15 @@ cmake --build build-android --target apk
 
 ### Release signing
 
-Without secrets, CI signs with a throwaway key (the APK installs, but each
-build has a different key, so updating needs an uninstall first). For a stable
-key, create one once:
+`android/release.keystore.enc` is the release key, encrypted with
+`openssl enc -aes-256-cbc -pbkdf2 -iter 200000`. CI decrypts it with the
+repository secret `FEMM_KEYSTORE_PASSWORD` (the same password protects the
+key, alias `femm`). The file does not exist until the secret is added: the
+first arm64 build after that creates the key, encrypts it with the secret and
+commits it to the branch, so nobody but the repository owner ever sees the
+password. With the secret set, every build carries the same
+signature, so a new APK installs over the old one and the app keeps its files.
+Without it, CI signs with a throwaway key and updating needs an uninstall.
 
-```bash
-keytool -genkeypair -keystore femm-release.keystore -alias femm -keyalg RSA -keysize 2048 -validity 10000
-```
-
-and add these repository secrets (Settings > Secrets and variables > Actions):
-
-* `ANDROID_KEYSTORE_BASE64`: output of `base64 -w0 femm-release.keystore`
-* `ANDROID_KEYSTORE_PASSWORD`: the keystore password
-* `ANDROID_KEY_ALIAS`: `femm`
-
-Keep the keystore file safe; it cannot be recovered.
+Keep the password somewhere safe: without it no update can be signed with this
+key, and a new key means one more uninstall for everyone.

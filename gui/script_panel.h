@@ -88,7 +88,8 @@ private:
     void setRunning(bool running);
     void showStatus(const QString &text, bool error);
     QString buildErrorReport(const QString &msg, int line) const;
-    QToolButton *makeButton(const QString &text, const QString &tip);
+    QToolButton *makeButton(const QString &text, const QString &tip,
+                            const char *iconName = nullptr);
     void saveDraft() const;
 
     ScriptCodeEdit *m_edit = nullptr;
