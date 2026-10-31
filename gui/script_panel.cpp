@@ -49,10 +49,12 @@ namespace {
 class PyHighlighter : public QSyntaxHighlighter
 {
 public:
-    explicit PyHighlighter(QTextDocument *doc) : QSyntaxHighlighter(doc)
+    PyHighlighter(QTextDocument *doc, bool dark) : QSyntaxHighlighter(doc)
     {
+        // Two palettes: the light one for the desktop default, the dark one
+        // for a dark system theme (common on Android tablets).
         QTextCharFormat kw;
-        kw.setForeground(QColor(0x00, 0x33, 0x99));
+        kw.setForeground(dark ? QColor(0x56, 0x9c, 0xd6) : QColor(0x00, 0x33, 0x99));
         kw.setFontWeight(QFont::Bold);
         const char *words[] = {
             "and", "as", "assert", "break", "class", "continue", "def", "del",
@@ -64,17 +66,17 @@ public:
             m_rules.push_back({QRegularExpression(QString("\\b%1\\b").arg(w)), kw});
 
         QTextCharFormat femm;
-        femm.setForeground(QColor(0x00, 0x77, 0x66));
+        femm.setForeground(dark ? QColor(0x4e, 0xc9, 0xb0) : QColor(0x00, 0x77, 0x66));
         m_rules.push_back({QRegularExpression(
             "\\b(?:femm\\.)?(?:mi|mo|ei|eo|hi|ho|ci|co)_\\w+"), femm});
 
         QTextCharFormat num;
-        num.setForeground(QColor(0x99, 0x33, 0x00));
+        num.setForeground(dark ? QColor(0xb5, 0xce, 0xa8) : QColor(0x99, 0x33, 0x00));
         m_rules.push_back({QRegularExpression(
             "\\b[0-9]+(?:\\.[0-9]*)?(?:[eE][-+]?[0-9]+)?\\b"), num});
 
-        m_string.setForeground(QColor(0x88, 0x00, 0x88));
-        m_comment.setForeground(QColor(0x70, 0x70, 0x70));
+        m_string.setForeground(dark ? QColor(0xce, 0x91, 0x78) : QColor(0x88, 0x00, 0x88));
+        m_comment.setForeground(dark ? QColor(0x6a, 0x99, 0x55) : QColor(0x70, 0x70, 0x70));
         m_comment.setFontItalic(true);
     }
 
@@ -135,7 +137,7 @@ ScriptCodeEdit::ScriptCodeEdit(QWidget *parent) : QPlainTextEdit(parent)
     setFont(f);
     setLineWrapMode(QPlainTextEdit::NoWrap);
     setTabStopDistance(4 * fontMetrics().horizontalAdvance(' '));
-    new PyHighlighter(document());
+    new PyHighlighter(document(), isDark());
 
     m_gutter = new Gutter(this);
     connect(this, &QPlainTextEdit::blockCountChanged, this, [this]() { updateGutterWidth(); });
@@ -143,6 +145,11 @@ ScriptCodeEdit::ScriptCodeEdit(QWidget *parent) : QPlainTextEdit(parent)
             [this](const QRect &r, int dy) { updateGutter(r, dy); });
     connect(this, &QPlainTextEdit::cursorPositionChanged, this, [this]() { updateSelections(); });
     updateGutterWidth();
+}
+
+bool ScriptCodeEdit::isDark() const
+{
+    return palette().color(QPalette::Base).lightness() < 128;
 }
 
 int ScriptCodeEdit::gutterWidth() const
@@ -174,14 +181,16 @@ void ScriptCodeEdit::resizeEvent(QResizeEvent *e)
 void ScriptCodeEdit::paintGutter(QPaintEvent *e)
 {
     QPainter p(m_gutter);
-    p.fillRect(e->rect(), QColor(0xf0, 0xf0, 0xf0));
+    const bool dark = isDark();
+    p.fillRect(e->rect(), dark ? QColor(0x2b, 0x2b, 0x2b) : QColor(0xf0, 0xf0, 0xf0));
     QTextBlock block = firstVisibleBlock();
     int num = block.blockNumber() + 1;
     int top = qRound(blockBoundingGeometry(block).translated(contentOffset()).top());
     int bottom = top + qRound(blockBoundingRect(block).height());
     while (block.isValid() && top <= e->rect().bottom()) {
         if (block.isVisible() && bottom >= e->rect().top()) {
-            p.setPen(num == m_errorLine ? QColor(0xcc, 0x00, 0x00) : QColor(0x90, 0x90, 0x90));
+            p.setPen(num == m_errorLine ? (dark ? QColor(0xff, 0x6b, 0x6b) : QColor(0xcc, 0x00, 0x00))
+                                        : QColor(0x90, 0x90, 0x90));
             p.drawText(0, top, m_gutter->width() - 5, fontMetrics().height(),
                        Qt::AlignRight, QString::number(num));
         }
@@ -214,7 +223,7 @@ void ScriptCodeEdit::updateSelections()
         QTextBlock b = document()->findBlockByNumber(m_errorLine - 1);
         if (b.isValid()) {
             QTextEdit::ExtraSelection s;
-            s.format.setBackground(QColor(0xff, 0xd8, 0xd8));
+            s.format.setBackground(isDark() ? QColor(0x5a, 0x1d, 0x1d) : QColor(0xff, 0xd8, 0xd8));
             s.format.setProperty(QTextFormat::FullWidthSelection, true);
             s.cursor = QTextCursor(b);
             sel.append(s);
@@ -387,7 +396,12 @@ void ScriptPanel::setRunning(bool running)
 void ScriptPanel::showStatus(const QString &text, bool error)
 {
     m_status->setText(text);
-    m_status->setStyleSheet(error ? "color: #b00000; font-weight: bold;" : "color: #305030;");
+    const bool dark = palette().color(QPalette::Window).lightness() < 128;
+    if (error)
+        m_status->setStyleSheet(dark ? "color: #ff6b6b; font-weight: bold;"
+                                     : "color: #b00000; font-weight: bold;");
+    else
+        m_status->setStyleSheet(dark ? "color: #8fd88f;" : "color: #305030;");
 }
 
 void ScriptPanel::onConsoleOutput(const QString &text)

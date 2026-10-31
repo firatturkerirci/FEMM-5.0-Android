@@ -30,6 +30,7 @@ public:
     explicit ScriptCodeEdit(QWidget *parent = nullptr);
 
     int gutterWidth() const;
+    bool isDark() const;   // dark theme: pick readable colours
     void paintGutter(QPaintEvent *e);
     // 1-based; 0 clears the highlight.
     void setErrorLine(int line);
