@@ -2844,12 +2844,8 @@ void MainWindow::setupTabletMode()
 
     // Bigger icons on every toolbar, so a finger or pen hits the right one.
     const QSize iconSize(30, 28);
-    for (auto *tb : findChildren<QToolBar *>()) {
-        tb->setIconSize(iconSize);
-        tb->setStyleSheet("QToolButton { padding: 3px; margin: 1px; }"
-                          "QToolButton:checked { background-color: palette(highlight);"
-                          " border-radius: 4px; }");
-    }
+    for (auto *tb : findChildren<QToolBar *>())
+        tb->setIconSize(iconSize);   // the checked highlight: tablet_style.cpp
 
     // Quick bar: the usual sequence of a FEMM session, labelled, on its own
     // row above the classic toolbars.
@@ -2858,11 +2854,8 @@ void MainWindow::setupTabletMode()
     quick->setMovable(false);
     quick->setIconSize(QSize(26, 24));
     quick->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    quick->setStyleSheet(
-        "QToolBar#QuickBar { spacing: 6px; padding: 4px; }"
-        "QToolBar#QuickBar QToolButton { padding: 8px 14px; border-radius: 8px;"
-        " border: 1px solid palette(mid); background: palette(button); }"
-        "QToolBar#QuickBar QToolButton:pressed { background: palette(highlight); }");
+    // Rounded, framed buttons: drawn by the tablet style (tablet_style.cpp).
+    quick->setContentsMargins(4, 4, 4, 4);
     QToolBar *firstTop = nullptr;
     for (auto *tb : findChildren<QToolBar *>())
         if (tb != quick && toolBarArea(tb) == Qt::TopToolBarArea) { firstTop = tb; break; }

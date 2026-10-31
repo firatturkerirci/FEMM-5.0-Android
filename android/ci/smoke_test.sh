@@ -14,7 +14,8 @@ adb install -r -g "$APK" || exit 1
 adb logcat -c
 ACT=$(adb shell cmd package resolve-activity --brief -c android.intent.category.LAUNCHER "$PKG" | tail -1 | tr -d '\r')
 echo "launcher activity: $ACT"
-adb shell am start -W -n "$ACT" -e applicationArguments "-selftest ai_demo_solenoid.py selftest.png"
+# One string for the device shell, so the argument list keeps its spaces.
+adb shell "am start -W -n $ACT -e applicationArguments '-selftest ai_demo_solenoid.py selftest.png'"
 
 # The app exits when the self-test is done; give it up to 4 minutes.
 status=1
@@ -44,9 +45,15 @@ adb shell ls -la "$EXT" 2>&1 || true
 
 # A small copy of the screen in the log, for when the artifact cannot be
 # downloaded: base64 JPEG between markers.
-if command -v convert > /dev/null && [ -s "$OUT/screen.png" ]; then
-    convert "$OUT/screen.png" -resize 900x -quality 60 "$OUT/screen_small.jpg" && {
-        echo "SCREEN-B64-BEGIN"; base64 -w 0 "$OUT/screen_small.jpg"; echo; echo "SCREEN-B64-END"; }
+if [ -s "$OUT/screen.png" ] && python3 -m pip install --quiet --user pillow > /dev/null 2>&1; then
+    python3 - "$OUT/screen.png" "$OUT/screen_small.jpg" <<'PY'
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+im.thumbnail((900, 900))
+im.save(sys.argv[2], 'JPEG', quality=60)
+PY
+    echo "SCREEN-B64-BEGIN"; base64 -w 0 "$OUT/screen_small.jpg"; echo; echo "SCREEN-B64-END"
 fi
 
 if [ $status -ne 0 ]; then

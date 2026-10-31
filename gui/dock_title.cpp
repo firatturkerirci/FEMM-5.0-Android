@@ -21,6 +21,8 @@ public:
     TabletDockTitle(QMainWindow *mw, QDockWidget *dock) : QWidget(dock), m_mw(mw), m_dock(dock)
     {
         setObjectName("TabletDockTitle");
+        setAutoFillBackground(true);
+        setBackgroundRole(QPalette::Window);
         auto *h = new QHBoxLayout(this);
         h->setContentsMargins(10, 4, 4, 4);
         h->setSpacing(4);
