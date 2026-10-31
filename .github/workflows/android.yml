@@ -1,0 +1,113 @@
+name: Android APK
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # attach the APK to a release on tag pushes
+
+env:
+  QT_VERSION: '6.8.3'
+  NDK_VERSION: '26.1.10909125'
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the build number is counted from git history
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Qt for Android (plus the desktop host Qt)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: android
+          arch: android_arm64_v8a
+          autodesktop: true
+          cache: true
+
+      - name: Install the Android NDK and platform
+        run: |
+          SDKM="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "ndk;${NDK_VERSION}" "platforms;android-34" "build-tools;34.0.0" > /dev/null
+          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "BUILD_TOOLS=$ANDROID_SDK_ROOT/build-tools/34.0.0" >> "$GITHUB_ENV"
+
+      - name: Configure
+        run: |
+          HOST_QT="${QT_HOST_PATH:-$(dirname "$QT_ROOT_DIR")/gcc_64}"
+          echo "Qt (android): $QT_ROOT_DIR"
+          echo "Qt (host):    $HOST_QT"
+          "$QT_ROOT_DIR/bin/qt-cmake" -S . -B build-android -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DQT_HOST_PATH="$HOST_QT" \
+            -DANDROID_SDK_ROOT="$ANDROID_SDK_ROOT" \
+            -DANDROID_NDK_ROOT="$ANDROID_NDK_ROOT" \
+            -DFEMM_ANDROID_VERSION_CODE=${{ github.run_number }}
+
+      - name: Build native code
+        run: cmake --build build-android --parallel 4
+
+      - name: Build APK
+        run: cmake --build build-android --target apk
+
+      - name: Show the generated manifest and gradle settings
+        if: always()
+        run: |
+          D=build-android/gui/android-build
+          [ -f "$D/AndroidManifest.xml" ] && cat "$D/AndroidManifest.xml" || true
+          [ -f "$D/build.gradle" ] && grep -n -i -A3 "packaging\|jniLibs\|legacy" "$D/build.gradle" || true
+          find build-android -name "*.apk" -print
+
+      - name: Sign the APK
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          UNSIGNED=$(find build-android -name "*release-unsigned.apk" | head -1)
+          [ -n "$UNSIGNED" ] || UNSIGNED=$(find build-android -name "*.apk" | head -1)
+          echo "input: $UNSIGNED"
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > release.keystore
+          else
+            # No release key configured: sign with a throwaway key so the APK
+            # installs. Updating over it needs an uninstall first.
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; signing with a temporary key"
+            KEYSTORE_PASS=android
+            KEY_ALIAS=femm
+            keytool -genkeypair -keystore release.keystore -storepass "$KEYSTORE_PASS" \
+              -keypass "$KEYSTORE_PASS" -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 \
+              -validity 10000 -dname "CN=FEMM Android CI" > /dev/null
+          fi
+          "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" aligned.apk
+          "$BUILD_TOOLS/apksigner" sign --ks release.keystore --ks-pass "pass:$KEYSTORE_PASS" \
+            --ks-key-alias "$KEY_ALIAS" --out femm-android.apk aligned.apk
+          "$BUILD_TOOLS/apksigner" verify femm-android.apk
+          rm -f release.keystore aligned.apk
+          echo "--- native libraries in the APK"
+          unzip -l femm-android.apk | grep "lib/" || true
+          ls -la femm-android.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: femm-android-apk
+          path: femm-android.apk
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: femm-android.apk
+          prerelease: true

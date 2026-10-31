@@ -301,8 +301,33 @@ int createMeshForDocument(DocumentBase *doc, char *errmsg, int errmsg_size)
 // ---------------------------------------------------------------------------
 // Shared analysis
 // ---------------------------------------------------------------------------
+static std::string s_exeDirOverride;
+static std::string s_solverDirOverride;
+
+static std::string withSlash(std::string d)
+{
+    if (!d.empty() && d.back() != '/' && d.back() != '\\') d += '/';
+    return d;
+}
+
+void set_exe_dir_override(const std::string &dir) { s_exeDirOverride = withSlash(dir); }
+void set_solver_dir_override(const std::string &dir) { s_solverDirOverride = withSlash(dir); }
+
+std::string solverExePath(const std::string &name)
+{
+#if defined(__ANDROID__)
+    const std::string file = "lib" + name + ".so";
+#elif defined(_WIN32)
+    const std::string file = name + ".exe";
+#else
+    const std::string file = name;
+#endif
+    return (s_solverDirOverride.empty() ? exeDir() : s_solverDirOverride) + file;
+}
+
 std::string exeDir()
 {
+    if (!s_exeDirOverride.empty()) return s_exeDirOverride;
     static std::string dir;
     if (!dir.empty()) return dir;
 #ifdef _WIN32
@@ -455,10 +480,7 @@ int analyzeDocument(DocumentBase *doc, int hide, char *errmsg, int errmsg_size)
     std::string base = femm_u8string(p);
     std::replace(base.begin(), base.end(), '\\', '/');
 
-    std::string solver = exeDir() + doc->solverName();
-#ifdef _WIN32
-    solver += ".exe";
-#endif
+    std::string solver = solverExePath(doc->solverName());
 
     auto cb = get_run_solver_callback();
     if (cb) {

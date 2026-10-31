@@ -52,6 +52,7 @@
 #include "vector_choice.h"
 #include "tcp_server.h"
 #include "solver_progress_dialog.h"
+#include "android_support.h"
 
 // Global pointer so the script callback can reach the main window
 static MainWindow *s_mainWindow = nullptr;
@@ -699,6 +700,11 @@ int main(int argc, char *argv[])
     // load. Reset it right after QApplication (which is what changed it). Qt's UI
     // number formatting uses QLocale, not LC_NUMERIC, so this doesn't affect it.
     setlocale(LC_NUMERIC, "C");
+
+#ifdef __ANDROID__
+    // Before init_py(): the interpreter's sys.path comes from exeDir().
+    femmAndroidSetup();
+#endif
 
     app.setApplicationName("FEMM");
     app.setApplicationVersion("5.0.0");

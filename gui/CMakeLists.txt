@@ -3,7 +3,7 @@
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-add_executable(femm_gui
+set(FEMM_GUI_SOURCES
     main.cpp
     mainwindow.cpp
     editor_widget.cpp
@@ -47,6 +47,16 @@ add_executable(femm_gui
     icons.qrc
     $<$<PLATFORM_ID:Windows>:femm.rc>
 )
+
+if(ANDROID)
+    # Qt for Android builds the app as a shared library inside an APK. The
+    # target is finalized at the end of the top-level CMakeLists.txt, once the
+    # solver targets exist and can be listed as extra native libraries.
+    qt_add_executable(femm_gui MANUAL_FINALIZATION
+        ${FEMM_GUI_SOURCES} android_support.cpp)
+else()
+    add_executable(femm_gui ${FEMM_GUI_SOURCES})
+endif()
 femm_add_version_resource(femm_gui "FEMM")
 # femm.rc says ICON "icons/femm.ico", but nothing scans a .rc for what it
 # includes -- ninja reported "#deps 0" for femm.rc.obj -- so replacing the icon

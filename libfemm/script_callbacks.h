@@ -75,6 +75,21 @@ int analyzeDocument(DocumentBase *doc, int hide = 0, char *errmsg = nullptr, int
 // Directory of the running executable, with trailing slash.
 std::string exeDir();
 
+// Override what exeDir() returns. For platforms where the executable's own
+// directory is not where the read-only assets live -- on Android the process
+// is app_process64 and the assets are extracted into the app's private data
+// directory at startup. Call before anything asks for exeDir(). The trailing
+// slash is added if missing.
+void set_exe_dir_override(const std::string &dir);
+
+// Full path of a solver executable ("fkn", "belasolv", "hsolv", "csolv").
+// Default: exeDir() + name (+ ".exe" on Windows). With a solver directory set,
+// the solver is looked up there instead; on Android the solvers ship as
+// lib<name>.so in the APK's native library directory, the one place an app
+// may execute a file from.
+void set_solver_dir_override(const std::string &dir);
+std::string solverExePath(const std::string &name);
+
 // Document registry (shared GUI/headless tracking).
 void set_gui_mode(bool gui);
 void doc_registry_add(DocumentBase *doc);

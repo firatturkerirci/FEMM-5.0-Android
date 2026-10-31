@@ -304,7 +304,11 @@ add_subdirectory(ipc)
 # --- Lua 4 legacy scripting client (no Qt) ---
 # Builds the bundled Lua 4.0 interpreter + LuaSocket as "lua4" in bin/, so
 # legacy FEMM Lua scripts run against femm-qt over TCP (see luafemm/).
-add_subdirectory(lua)
+# Not on Android: the Lua 4 client talks to FEMM over TCP from another
+# program, which a tablet app has no use for.
+if(NOT ANDROID)
+    add_subdirectory(lua)
+endif()
 
 # --- Layer 3: Qt GUI (optional) ---
 find_package(Qt6 COMPONENTS Widgets QUIET)
@@ -350,6 +354,16 @@ function(add_solver NAME SOLVER_DIR)
     # macOS doesn't support fully static linking, Linux doesn't need it)
     if(WIN32)
         target_link_options(${NAME} PRIVATE -static)
+    endif()
+    # Android: an app may only execute files from its native library
+    # directory, and only files named lib*.so get installed there. So each
+    # solver is built as an ordinary PIE executable named lib<NAME>.so and
+    # packaged with the APK (see the end of this file). The C++ runtime is
+    # linked statically because an exec'd child does not search the app's
+    # library directory for libc++_shared.so.
+    if(ANDROID)
+        set_target_properties(${NAME} PROPERTIES OUTPUT_NAME "lib${NAME}" SUFFIX ".so")
+        target_link_options(${NAME} PRIVATE -static-libstdc++)
     endif()
 endfunction()
 
@@ -434,8 +448,10 @@ set(FEMM_DATADIR "${CMAKE_INSTALL_DATADIR}/femm")
 
 # Seven executables on Linux/BSD, eight on Windows. `lua` installs as lua4
 # (OUTPUT_NAME, lua/CMakeLists.txt).
+if(NOT ANDROID)
 install(TARGETS femm_headless fkn belasolv hsolv csolv lua
         RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+endif()
 if(TARGET femm_gui)
     # BUNDLE DESTINATION is not optional on macOS. femm_gui sets MACOSX_BUNDLE
     # (gui/CMakeLists.txt), and CMake REFUSES to configure an install() of a
@@ -543,4 +559,12 @@ if(UNIX AND NOT APPLE)
                    "${CMAKE_CURRENT_BINARY_DIR}/femm-qt.desktop" @ONLY)
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/femm-qt.desktop"
             DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
+endif()
+
+# =====================================================================
+#  Android: package the solvers into the APK and finalize the app target.
+# =====================================================================
+if(ANDROID AND TARGET femm_gui)
+    include("${CMAKE_SOURCE_DIR}/android/AndroidPackage.cmake")
+    femm_android_package(femm_gui fkn belasolv hsolv csolv)
 endif()
