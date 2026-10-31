@@ -13,6 +13,7 @@
 // the fingers lift.
 #pragma once
 
+#include <QElapsedTimer>
 #include <QEvent>
 #include <QGestureEvent>
 #include <QObject>
@@ -164,6 +165,15 @@ protected:
     {
         if (obj != m_w) return false;
         if (e->type() == QEvent::Resize && m_w->isVisible()) {
+            // A single resize (a tab switch, a panel opened) just repaints
+            // normally: taking a picture first would cost a second full
+            // drawing. Only a second resize close behind the first (a drag)
+            // switches to the picture.
+            const qint64 now = m_clock.isValid() ? m_clock.elapsed() : -1;
+            if (!m_clock.isValid()) m_clock.start();
+            const bool burst = now >= 0 && now - m_lastResize < 250;
+            m_lastResize = m_clock.elapsed();
+            if (!burst && !m_active) return false;
             if (!m_active) {
                 m_active = true;
                 m_snapshot = m_w->grab();
@@ -190,6 +200,8 @@ private:
     QPixmap m_snapshot;
     QColor m_background;
     bool m_active = false;
+    QElapsedTimer m_clock;
+    qint64 m_lastResize = -1000;
 };
 
 inline void TouchNav::attach(QWidget *w, Fn fn)
