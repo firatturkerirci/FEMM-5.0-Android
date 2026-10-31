@@ -17,24 +17,39 @@ jobs:
   apk:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0   # the build number is counted from git history
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Install Qt for Android (plus the desktop host Qt)
-        uses: jurplel/install-qt-action@v4
+      - name: Cache Qt
+        id: qt-cache
+        uses: actions/cache@v4
         with:
-          version: ${{ env.QT_VERSION }}
-          host: linux
-          target: android
-          arch: android_arm64_v8a
-          autodesktop: true
-          cache: true
+          path: ~/Qt
+          key: qt-${{ env.QT_VERSION }}-android-arm64-host-gcc64-v2
+
+      - name: Install Qt for Android (plus the desktop host Qt)
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        run: |
+          python3 -m pip install --quiet "aqtinstall>=3.3"
+          echo "--- available android Qt versions"
+          python3 -m aqt list-qt all_os android 2>/dev/null | tail -3 || true
+          python3 -m aqt list-qt linux android 2>/dev/null | tail -3 || true
+          python3 -m aqt install-qt linux desktop "$QT_VERSION" linux_gcc_64 -O ~/Qt
+          python3 -m aqt install-qt all_os android "$QT_VERSION" android_arm64_v8a -O ~/Qt \
+            || python3 -m aqt install-qt linux android "$QT_VERSION" android_arm64_v8a -O ~/Qt
+          ls ~/Qt/"$QT_VERSION"
+
+      - name: Locate Qt
+        run: |
+          echo "QT_ROOT_DIR=$HOME/Qt/$QT_VERSION/android_arm64_v8a" >> "$GITHUB_ENV"
+          echo "QT_HOST_PATH=$HOME/Qt/$QT_VERSION/gcc_64" >> "$GITHUB_ENV"
+          ls "$HOME/Qt/$QT_VERSION"
 
       - name: Install the Android NDK and platform
         run: |
@@ -46,7 +61,7 @@ jobs:
 
       - name: Configure
         run: |
-          HOST_QT="${QT_HOST_PATH:-$(dirname "$QT_ROOT_DIR")/gcc_64}"
+          HOST_QT="$QT_HOST_PATH"
           echo "Qt (android): $QT_ROOT_DIR"
           echo "Qt (host):    $HOST_QT"
           "$QT_ROOT_DIR/bin/qt-cmake" -S . -B build-android -G Ninja \

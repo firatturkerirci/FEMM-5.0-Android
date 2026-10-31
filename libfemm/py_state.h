@@ -92,6 +92,13 @@ void init_py();
 // formatted message into errmsg (truncated to errmsg_size).
 int exec_python(const char *cmd, char *errmsg, int errmsg_size);
 
+// Line number, within the executed source, of the most recent exec_python()
+// or exec_python_file() error: the innermost traceback frame that belongs to
+// that source (not to an imported module). 0 when the last run succeeded or
+// the error carries no line. Kept apart from errmsg so the message text, which
+// scripts and tests match on, is unchanged.
+int py_last_error_line();
+
 // True if `src` is an incomplete REPL statement needing more input — it opens a
 // block (trailing ':'), has an unclosed bracket/quote or trailing backslash, or
 // is a non-blank line inside an open compound statement (a blank line ends the

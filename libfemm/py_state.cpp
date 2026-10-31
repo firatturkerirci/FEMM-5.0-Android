@@ -457,7 +457,22 @@ static void capture_result(mp_obj_t res) {
 
 // Wire error: the exception's message (str(exc)), single value. RuntimeError
 // raised from a bound function carries e.what(), so FEMM error strings match.
+static int s_last_error_line = 0;
+
+int py_last_error_line() { return s_last_error_line; }
+
+// Innermost traceback line that lies in the executed source (<stdin>).
+static int exception_source_line(mp_obj_t exc) {
+    if (!mp_obj_is_exception_instance(exc)) return 0;
+    size_t n = 0, *values = nullptr;
+    mp_obj_exception_get_traceback(exc, &n, &values);
+    for (size_t i = 0; i + 2 < n; i += 3)
+        if (values[i] == MP_QSTR__lt_stdin_gt_) return (int)values[i + 1];
+    return 0;
+}
+
 static int format_exception(mp_obj_t exc, char *errmsg, int errmsg_size) {
+    s_last_error_line = exception_source_line(exc);
     if (errmsg && errmsg_size > 0) {
         buf_sink bs{errmsg, (size_t)errmsg_size, 0};
         mp_print_t pr{&bs, buf_sink_strn};
@@ -662,6 +677,7 @@ void init_py() {
 
 int exec_python(const char *cmd, char *errmsg, int errmsg_size) {
     if (errmsg && errmsg_size > 0) errmsg[0] = '\0';
+    s_last_error_line = 0;
     s_last_result.clear();
     s_last_display.clear();
 
