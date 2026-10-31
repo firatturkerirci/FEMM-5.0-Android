@@ -45,6 +45,7 @@ set(FEMM_GUI_SOURCES
     copy_move_dialog.cpp
     arc_dialog.cpp
     script_panel.cpp
+    tablet_style.cpp
     icons.qrc
     script_panel.qrc
     tablet_icons.qrc

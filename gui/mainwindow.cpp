@@ -1015,7 +1015,7 @@ void MainWindow::showPreprocessorUI()
     m_ppTopBar->hide();
     m_ppMenuView->menuAction()->setVisible(false);
     m_ppMenuOperation->menuAction()->setVisible(false);
-    if (m_winButtons) m_winButtons->show();
+    if (m_winButtons && !femmTabletMode()) m_winButtons->show();
     m_dxfSep->setVisible(true);
     m_importDxf->setVisible(true);
     m_exportDxf->setVisible(true);
@@ -1044,7 +1044,7 @@ void MainWindow::showPostprocessorUI()
     m_ppTopBar->show();
     m_ppMenuView->menuAction()->setVisible(true);
     m_ppMenuOperation->menuAction()->setVisible(true);
-    if (m_winButtons) m_winButtons->show();
+    if (m_winButtons && !femmTabletMode()) m_winButtons->show();
     m_dxfSep->setVisible(false);
     m_importDxf->setVisible(false);
     m_exportDxf->setVisible(false);
@@ -2826,6 +2826,9 @@ void MainWindow::setupTabletMode()
     // Qt for Android moves a QMenuBar into the Android action bar, where these
     // menus did not show at all. Keep them in the window, like the desktop.
     menuBar()->setNativeMenuBar(false);
+    // The MDI min/max/close buttons beside the menus: the tabs do that job.
+    if (m_winButtons) m_winButtons->hide();
+    setStyleSheet(QString());   // the desktop's grey "checked" toolbar colour
 #ifdef __ANDROID__
     femmAndroidHideActionBar();
 #endif

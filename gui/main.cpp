@@ -55,6 +55,12 @@
 #include "android_support.h"
 #include "script_panel.h"
 #include "tablet_mode.h"
+#include "tablet_style.h"
+#include <QAction>
+#include <QPainter>
+#include <QDialog>
+#include <QMdiArea>
+#include <QMdiSubWindow>
 #include <QTimer>
 #include <QFile>
 
@@ -693,6 +699,12 @@ int main(int argc, char *argv[])
     qunsetenv("QT_QPA_PLATFORM_PLUGIN_PATH");
 
     QApplication app(argc, argv);
+    // The tablet theme (tablet_style.cpp) is under review: off unless
+    // FEMM_THEME is set. FEMM_THEME=light|dark|system picks the palette.
+    if (femmTabletMode() && qEnvironmentVariableIsSet("FEMM_THEME")) {
+        const QByteArray th = qgetenv("FEMM_THEME");
+        femmApplyTabletStyle(app, th == "dark" ? 1 : th == "light" ? 0 : -1);
+    }
     if (qEnvironmentVariableIsSet("FEMM_EVENT_TRACE"))
         app.installEventFilter(new FemmEventTrace);   // DIAG, see class above
 
@@ -895,6 +907,39 @@ int main(int argc, char *argv[])
                 }
                 fprintf(stderr, "selftest: %s\n%s\n", ok ? "OK" : "FAILED",
                         qPrintable(p->statusText()));
+                // FEMM_SELFTEST_ACTIONS="tab:<title>;<menu action>;...": switch
+                // tabs or trigger actions, saving each dialog that opens as
+                // <out.png>.N.png. For screenshots of the dialogs.
+                const QStringList steps = QString::fromLocal8Bit(
+                    qgetenv("FEMM_SELFTEST_ACTIONS")).split(';', Qt::SkipEmptyParts);
+                int n = 0;
+                for (const QString &step : steps) {
+                    if (step.startsWith("tab:")) {
+                        auto *mdi = w.findChild<QMdiArea *>();
+                        for (auto *sub : mdi ? mdi->subWindowList() : QList<QMdiSubWindow *>())
+                            if (sub->windowTitle() == step.mid(4)) mdi->setActiveSubWindow(sub);
+                        QCoreApplication::processEvents();
+                        continue;
+                    }
+                    QAction *act = nullptr;
+                    for (auto *a : w.findChildren<QAction *>())
+                        if (a->text().remove('&') == step && a->isVisible()) { act = a; break; }
+                    if (!act) { fprintf(stderr, "selftest: no action %s\n", qPrintable(step)); continue; }
+                    const QString shot = selftestOut + "." + QString::number(++n) + ".png";
+                    QTimer::singleShot(1200, &w, [&w, shot]() {
+                        QWidget *m = QApplication::activeModalWidget();
+                        if (!m) return;
+                        // The window behind, dimmed, with the dialog drawn on top.
+                        QPixmap pm = w.grab();
+                        QPainter pt(&pm);
+                        pt.fillRect(pm.rect(), QColor(0, 0, 0, 90));
+                        pt.drawPixmap(m->geometry().topLeft() - w.geometry().topLeft(), m->grab());
+                        pt.end();
+                        pm.save(shot);
+                        if (auto *d = qobject_cast<QDialog *>(m)) d->reject();
+                    });
+                    act->trigger();
+                }
                 qApp->exit(ok ? 0 : 1);
             });
         });
