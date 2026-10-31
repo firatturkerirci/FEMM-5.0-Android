@@ -2,6 +2,7 @@
 // Copyright (C) 2026 David Meeker and contributors
 
 // electrostatics_handler.cpp — Electrostatics-specific postprocessor dialogs
+#include "tablet_mode.h"
 #include "electrostatics_handler.h"
 #include "xy_plot.h"
 #include "scalar_results_widget.h"
@@ -43,7 +44,7 @@ void ElectrostaticsHandler::showIntegrateDialog(QWidget *parent, OutputDialog *o
     bool isAxi = (doc->ProblemType == 1);
 
     if (m_widget->mode() == 1) {
-        if (doc->contour.size() < 2) { m_widget->emitStatus("Define a contour path first"); return; }
+        if (doc->contour.size() < 2) { femmContourHint(m_widget); return; }
         QStringList types;
         types << "E.t" << "D.n" << "Contour length"
               << "Force from stress tensor" << "Torque from stress tensor";
@@ -159,7 +160,7 @@ void ElectrostaticsHandler::showXYPlotDialog(QWidget *parent)
 {
     auto *doc = m_widget->document();
     if (!doc) return;
-    if (doc->contour.size() < 2) { m_widget->emitStatus("Define a contour path first (use Contour mode)"); return; }
+    if (doc->contour.size() < 2) { femmContourHint(m_widget); return; }
     // The list lives in libfemm so *_makeplot can label its exported
     // columns with the same names.
     const QStringList types = xyplot::quantityList(xyexport::elecPlotNames());

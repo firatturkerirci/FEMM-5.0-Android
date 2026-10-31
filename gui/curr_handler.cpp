@@ -2,6 +2,7 @@
 // Copyright (C) 2026 David Meeker and contributors
 
 // curr_handler.cpp — Current flow postprocessor dialogs
+#include "tablet_mode.h"
 #include "curr_handler.h"
 #include "xy_plot.h"
 #include "complex_format.h"
@@ -50,7 +51,7 @@ void CurrentFlowHandler::showIntegrateDialog(QWidget *parent, OutputDialog *out)
 
     if (m_widget->mode() == 1) {
         // Line integrals
-        if (m_doc->contour.size() < 2) { m_widget->emitStatus("Define a contour path first"); return; }
+        if (m_doc->contour.size() < 2) { femmContourHint(m_widget); return; }
         QStringList types;
         types << "E.t (voltage drop)" << "J.n (current)"
               << "Contour length" << "Average voltage";
@@ -169,7 +170,7 @@ void CurrentFlowHandler::showIntegrateDialog(QWidget *parent, OutputDialog *out)
 void CurrentFlowHandler::showXYPlotDialog(QWidget *parent)
 {
     if (!m_doc) return;
-    if (m_doc->contour.size() < 2) { m_widget->emitStatus("Define a contour path first (use Contour mode)"); return; }
+    if (m_doc->contour.size() < 2) { femmContourHint(m_widget); return; }
     // The list lives in libfemm so *_makeplot can label its exported
     // columns with the same names.
     const QStringList types = xyplot::quantityList(xyexport::currPlotNames());

@@ -16,6 +16,8 @@ QString femmAndroidWorkDir();
 // Text shared to FEMM from another app (Share > FEMM, or opening a .py),
 // or empty. Each share is returned once.
 QString femmAndroidTakeSharedText();
+// Hide the Android action bar (the title strip above the window).
+void femmAndroidHideActionBar();
 // The app's external files folder (readable over adb); empty if unavailable.
 QString femmAndroidExternalDir();
 #endif

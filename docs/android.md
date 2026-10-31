@@ -35,6 +35,14 @@ Code: `gui/android_support.cpp`, `android/AndroidPackage.cmake`, and
 * `femm_gui -selftest <script.py> <out.png>`: runs a script through the panel,
   saves a screenshot and `<out.png>.txt`, exits 0 on success.
 * Two-finger pinch zoom and pan in the drawing and results views (Android).
+* Tablet layout (`gui/tablet_mode.h`, `MainWindow::setupTabletMode`; on with
+  Android, or `FEMM_TABLET=1` on the desktop): menus kept inside the window
+  (Qt otherwise moves them into the Android action bar, where they did not
+  show), the action bar hidden, toolbar icons doubled, and a labelled quick bar
+  (Script, Mesh, Solve, Results, Values, Contour, Area, Plot, Integrate, Fit).
+  Solve opens the results when it finishes and works from the results tab too.
+* Plot X-Y and line integrals without a contour explain how to draw one, in a
+  dialog, instead of a status-bar line (all platforms).
 
 ## Building
 

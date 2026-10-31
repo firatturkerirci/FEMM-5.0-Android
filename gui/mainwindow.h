@@ -98,6 +98,12 @@ private slots:
     // Common
     void updateCoordinates(double x, double y);
     void updateStatus(const QString &msg);
+    // Tablet layout (tablet_mode.h): menus inside the window, larger icons and
+    // a labelled quick-action bar.
+    void setupTabletMode();
+    // Make the tab of the same model active: its editor (.fem) when wantEditor,
+    // else its results (.ans). False if there is no such tab.
+    bool activateSiblingTab(bool wantEditor);
     void onEditActionChanged(int action);
     void onSubWindowActivated(QMdiSubWindow *sub);
 

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 David Meeker and contributors
 
 // magnetics_handler.cpp — Magnetics-specific postprocessor dialogs
+#include "tablet_mode.h"
 #include "magnetics_handler.h"
 #include "xy_plot.h"
 #include "complex_format.h"
@@ -54,7 +55,7 @@ void MagneticsHandler::showIntegrateDialog(QWidget *parent, OutputDialog *out)
     if (m_widget->mode() == 1) {
         // Line integral
         if (doc->contour.size() < 2) {
-            m_widget->emitStatus("Define a contour path first");
+            femmContourHint(m_widget);
             return;
         }
         QStringList types;
@@ -435,7 +436,7 @@ void MagneticsHandler::showXYPlotDialog(QWidget *parent)
 
     if (doc->contour.size() < 2) {
         if (doc->agelist.empty()) {
-            m_widget->emitStatus("Define a contour path first (use Contour mode)");
+            femmContourHint(m_widget);
             return;
         }
         // AGE plot dialog

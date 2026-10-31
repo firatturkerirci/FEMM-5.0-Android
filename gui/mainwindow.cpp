@@ -9,6 +9,7 @@
 #include "build_info.h"
 #include "py_console.h"
 #include "script_panel.h"
+#include "tablet_mode.h"
 #ifdef __ANDROID__
 #include "android_support.h"
 #endif
@@ -89,7 +90,16 @@ static bool femmOpenable(const QString &path);
 
 static QIcon icon(const char *name)
 {
-    return QIcon(QString(":/icons/%1.png").arg(name));
+    const QString path = QString(":/icons/%1.png").arg(name);
+    if (!femmTabletMode()) return QIcon(path);
+    // The toolbar icons are 16x15 bitmaps and QIcon never scales a pixmap up,
+    // so on a tablet they stayed tiny inside the bigger buttons. Double them,
+    // pixel for pixel, so they stay crisp and look like FEMM's own.
+    QPixmap pm(path);
+    if (pm.isNull()) return QIcon(path);
+    QIcon ic;
+    ic.addPixmap(pm.scaled(pm.size() * 2, Qt::KeepAspectRatio, Qt::FastTransformation));
+    return ic;
 }
 
 MainWindow::MainWindow(TcpServer *server, QWidget *parent)
@@ -176,6 +186,8 @@ MainWindow::MainWindow(TcpServer *server, QWidget *parent)
     // Files dropped anywhere on the window open as File>Open would. Child
     // widgets that do not take drops themselves pass the drag up to here.
     setAcceptDrops(true);
+
+    if (femmTabletMode()) setupTabletMode();
 
     // Window control buttons on the right side of the menu bar
     {
@@ -1359,6 +1371,7 @@ void MainWindow::onZoomWindow() { auto *e = activeEditor(); if (e) e->zoomWindow
 
 void MainWindow::onCreateMesh()
 {
+    if (!activeEditor() && femmTabletMode()) activateSiblingTab(true);
     auto *e = activeEditor();
     if (!e || !e->document()) return;
     if (e->document()->filePath.empty()) { onSaveAs(); if (e->document()->filePath.empty()) return; }
@@ -1382,6 +1395,9 @@ void MainWindow::onCreateMesh()
 
 void MainWindow::onAnalyze()
 {
+    // On a tablet the button is also reachable from the results tab: solve
+    // the model that tab belongs to.
+    if (!activeEditor() && femmTabletMode()) activateSiblingTab(true);
     auto *e = activeEditor();
     if (!e || !e->document()) return;
     if (e->document()->filePath.empty()) { onSaveAs(); if (e->document()->filePath.empty()) return; }
@@ -1403,6 +1419,9 @@ void MainWindow::onAnalyze()
             QMessageBox::warning(this, tr("Analysis Failed"), QString::fromUtf8(errmsg));
     } else {
         updateStatus("Analysis complete");
+        // FEMM shows results only on request (the Results button); on a
+        // tablet go straight to them.
+        if (femmTabletMode()) onViewResults();
     }
 }
 
@@ -2761,4 +2780,130 @@ OutputDialog *MainWindow::outputDialog()
     if (!m_outputDlg)
         m_outputDlg = new OutputDialog(this);
     return m_outputDlg;
+}
+
+// ================================================================
+// Tablet layout
+// ================================================================
+
+bool MainWindow::activateSiblingTab(bool wantEditor)
+{
+    auto *cur = m_mdiArea->activeSubWindow();
+    if (!cur) cur = m_mdiArea->currentSubWindow();
+    const QString stem = cur ? QFileInfo(cur->windowTitle().remove("*").trimmed()).completeBaseName()
+                             : QString();
+    QMdiSubWindow *fallback = nullptr;
+    for (auto *sub : m_mdiArea->subWindowList(QMdiArea::ActivationHistoryOrder)) {
+        const bool isEditor = qobject_cast<EditorWidget *>(sub->widget()) != nullptr;
+        const bool isResults = qobject_cast<ResultsWidget *>(sub->widget())
+                            || qobject_cast<ScalarResultsWidget *>(sub->widget());
+        if (wantEditor ? !isEditor : !isResults) continue;
+        if (QFileInfo(sub->windowTitle().remove("*").trimmed()).completeBaseName() == stem) {
+            m_mdiArea->setActiveSubWindow(sub);
+            return true;
+        }
+        fallback = sub;   // most recently used of the wanted kind
+    }
+    if (fallback) {
+        m_mdiArea->setActiveSubWindow(fallback);
+        return true;
+    }
+    return false;
+}
+
+void MainWindow::setupTabletMode()
+{
+    // Qt for Android moves a QMenuBar into the Android action bar, where these
+    // menus did not show at all. Keep them in the window, like the desktop.
+    menuBar()->setNativeMenuBar(false);
+#ifdef __ANDROID__
+    femmAndroidHideActionBar();
+#endif
+    {
+        QFont f = menuBar()->font();
+        f.setPointSizeF(f.pointSizeF() * 1.15);
+        menuBar()->setFont(f);
+    }
+
+    // Bigger icons on every toolbar, so a finger or pen hits the right one.
+    const QSize iconSize(30, 28);
+    for (auto *tb : findChildren<QToolBar *>()) {
+        tb->setIconSize(iconSize);
+        tb->setStyleSheet("QToolButton { padding: 3px; margin: 1px; }"
+                          "QToolButton:checked { background-color: palette(highlight);"
+                          " border-radius: 4px; }");
+    }
+
+    // Quick bar: the usual sequence of a FEMM session, labelled, on its own
+    // row above the classic toolbars.
+    auto *quick = new QToolBar(tr("Quick Actions"), this);
+    quick->setObjectName("QuickBar");
+    quick->setMovable(false);
+    quick->setIconSize(QSize(26, 24));
+    quick->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    quick->setStyleSheet(
+        "QToolBar#QuickBar { spacing: 6px; padding: 4px; }"
+        "QToolBar#QuickBar QToolButton { padding: 8px 14px; border-radius: 8px;"
+        " border: 1px solid palette(mid); background: palette(button); }"
+        "QToolBar#QuickBar QToolButton:pressed { background: palette(highlight); }");
+    QToolBar *firstTop = nullptr;
+    for (auto *tb : findChildren<QToolBar *>())
+        if (tb != quick && toolBarArea(tb) == Qt::TopToolBarArea) { firstTop = tb; break; }
+    if (firstTop) {
+        insertToolBar(firstTop, quick);
+        insertToolBarBreak(firstTop);
+    } else {
+        addToolBar(Qt::TopToolBarArea, quick);
+    }
+
+    auto add = [&](const char *ico, const QString &text, const QString &tip,
+                   std::function<void()> fn) {
+        QAction *a = quick->addAction(icon(ico), text);
+        a->setToolTip(tip);
+        connect(a, &QAction::triggered, this, [fn]() { fn(); });
+        return a;
+    };
+    QAction *scriptAct = m_scriptPanel->toggleViewAction();
+    quick->addAction(scriptAct);
+    quick->addSeparator();
+    add("mesh", tr("Mesh"), tr("Create the mesh of the model"), [this]() { onCreateMesh(); });
+    add("analyze", tr("Solve"), tr("Solve the model and show the results"),
+        [this]() { onAnalyze(); });
+    add("results", tr("Results"), tr("Show the results of the model"), [this]() {
+        if (!activeResults() && !activeScalarResults() && !activateSiblingTab(false))
+            onViewResults();
+    });
+    quick->addSeparator();
+    auto toResults = [this]() {
+        if (activeResults() || activeScalarResults()) return true;
+        if (activateSiblingTab(false)) return true;
+        updateStatus(tr("Solve the model first"));
+        return false;
+    };
+    add("pp_point", tr("Values"), tr("Tap the results to read field values"),
+        [this, toResults]() { if (toResults()) { onPPPointMode(); m_ppActPoint->setChecked(true); } });
+    add("pp_contour", tr("Contour"), tr("Tap points to define a path for plots and line integrals"),
+        [this, toResults]() { if (toResults()) onPPContourMode(); });
+    add("pp_area", tr("Area"), tr("Tap regions to select them for block integrals"),
+        [this, toResults]() { if (toResults()) { onPPAreaMode(); m_ppActArea->setChecked(true); } });
+    add("pp_plot", tr("Plot"), tr("Plot field values along the contour"), [this, toResults]() {
+        if (!toResults()) return;
+        auto *s = activeScalarResults(); if (s) { s->showXYPlotDialog(this); return; }
+        auto *r = activeResults(); if (r) r->showXYPlotDialog(this);
+    });
+    add("pp_integrate", tr("Integrate"), tr("Line or block integral"), [this, toResults]() {
+        if (!toResults()) return;
+        auto *s = activeScalarResults(); if (s) { s->showIntegrateDialog(this, outputDialog()); return; }
+        auto *r = activeResults(); if (r) r->showIntegrateDialog(this, outputDialog());
+    });
+    quick->addSeparator();
+    add("zoomnatural", tr("Fit"), tr("Fit the whole model in the view"), [this]() {
+        auto *e = activeEditor(); auto *r = activeResults(); auto *s = activeScalarResults();
+        if (e) e->zoomFit(); else if (r) r->zoomFit(); else if (s) s->zoomFit();
+    });
+
+    // A larger status bar: it carries the hints for each mode.
+    QFont sf = statusBar()->font();
+    sf.setPointSizeF(sf.pointSizeF() * 1.1);
+    statusBar()->setFont(sf);
 }

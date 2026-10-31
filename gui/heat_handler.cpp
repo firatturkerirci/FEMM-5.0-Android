@@ -2,6 +2,7 @@
 // Copyright (C) 2026 David Meeker and contributors
 
 // heat_handler.cpp — Heat flow postprocessor dialogs
+#include "tablet_mode.h"
 #include "heat_handler.h"
 #include "xy_plot.h"
 #include "scalar_results_widget.h"
@@ -45,7 +46,7 @@ void HeatFlowHandler::showIntegrateDialog(QWidget *parent, OutputDialog *out)
 
     if (m_widget->mode() == 1) {
         // Line integrals
-        if (m_doc->contour.size() < 2) { m_widget->emitStatus("Define a contour path first"); return; }
+        if (m_doc->contour.size() < 2) { femmContourHint(m_widget); return; }
         QStringList types;
         types << "G.t (Temperature gradient)" << "F.n (Heat flux)"
               << "Contour length" << "Average temperature";
@@ -101,7 +102,7 @@ void HeatFlowHandler::showIntegrateDialog(QWidget *parent, OutputDialog *out)
 void HeatFlowHandler::showXYPlotDialog(QWidget *parent)
 {
     if (!m_doc) return;
-    if (m_doc->contour.size() < 2) { m_widget->emitStatus("Define a contour path first (use Contour mode)"); return; }
+    if (m_doc->contour.size() < 2) { femmContourHint(m_widget); return; }
     // The list lives in libfemm so *_makeplot can label its exported
     // columns with the same names.
     const QStringList types = xyplot::quantityList(xyexport::heatPlotNames());

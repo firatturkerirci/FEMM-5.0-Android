@@ -112,6 +112,19 @@ QString femmAndroidTakeSharedText()
     return t.isValid() ? t.toString() : QString();
 }
 
+void femmAndroidHideActionBar()
+{
+    QNativeInterface::QAndroidApplication::runOnAndroidMainThread([]() {
+        QJniObject activity = QNativeInterface::QAndroidApplication::context();
+        if (!activity.isValid()) return;
+        QJniObject bar = activity.callObjectMethod("getActionBar", "()Landroid/app/ActionBar;");
+        QJniEnvironment env;
+        if (env.checkAndClearExceptions() || !bar.isValid()) return;
+        bar.callMethod<void>("hide");
+        env.checkAndClearExceptions();
+    });
+}
+
 QString femmAndroidExternalDir()
 {
     // getExternalFilesDir(null) also creates the folder. adb can read it
