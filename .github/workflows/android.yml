@@ -104,9 +104,11 @@ jobs:
       - name: Show the generated manifest and gradle settings
         if: always()
         run: |
-          D=build-android/gui/android-build
-          [ -f "$D/AndroidManifest.xml" ] && cat "$D/AndroidManifest.xml" || true
-          [ -f "$D/build.gradle" ] && grep -n -i -A3 "packaging\|jniLibs\|legacy" "$D/build.gradle" || true
+          mkdir -p android-build-info
+          find build-android -name AndroidManifest.xml -o -name build.gradle -o -name gradle.properties \
+            | grep -v "/intermediates/" | while read f; do
+              echo "=== $f"; cat "$f"; cp "$f" "android-build-info/$(echo "$f" | tr / _)"
+            done
           find build-android -name "*.apk" -print
 
       - name: Sign the APK
@@ -145,6 +147,19 @@ jobs:
           name: femm-android-${{ matrix.abi }}
           path: femm-android-${{ matrix.abi }}.apk
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-build-info-${{ matrix.abi }}
+          path: android-build-info/
+
+      - name: Free disk space for the emulator
+        if: matrix.abi == 'x86_64'
+        run: |
+          rm -rf build-android
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost \
+            /usr/local/lib/node_modules /opt/hostedtoolcache/CodeQL /usr/share/swift || true
+          df -h /
+
       - name: Enable KVM for the emulator
         if: matrix.abi == 'x86_64'
         run: |
@@ -161,6 +176,8 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_tablet
+          disk-size: 3000M
+          ram-size: 3072M
           disable-animations: true
           script: bash android/ci/smoke_test.sh femm-android-x86_64.apk ${{ env.APP_ID }} smoke
 
