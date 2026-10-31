@@ -15,6 +15,25 @@ env:
   APP_ID: 'io.github.firatturkerirci.femm'
 
 jobs:
+  scripts:
+    name: Demo scripts (desktop, headless)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build the headless engine and solvers
+        run: |
+          sudo apt-get install -y -qq ninja-build > /dev/null
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target femm_headless fkn belasolv hsolv csolv
+      - name: Run every script in android/scripts
+        run: |
+          mkdir -p run && cp android/scripts/*.py run/ && cd run
+          for f in *.py; do
+            echo "=== $f"
+            ../build/bin/femm_headless -run "$f" 2>&1 | tee out.txt
+            if grep -q "Script error" out.txt; then exit 1; fi
+          done
+
   apk:
     name: APK (${{ matrix.abi }})
     runs-on: ubuntu-24.04
