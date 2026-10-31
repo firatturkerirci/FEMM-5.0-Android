@@ -12,17 +12,21 @@ EXT="/sdcard/Android/data/$PKG/files"
 adb wait-for-device
 adb install -r -g "$APK" || exit 1
 adb logcat -c
-adb shell am start -W -n "$PKG/$PKG.FemmActivity" \
-    -e applicationArguments "-selftest ai_demo_solenoid.py selftest.png"
+ACT=$(adb shell cmd package resolve-activity --brief -c android.intent.category.LAUNCHER "$PKG" | tail -1 | tr -d '\r')
+echo "launcher activity: $ACT"
+adb shell am start -W -n "$ACT" -e applicationArguments "-selftest ai_demo_solenoid.py selftest.png"
 
 # The app exits when the self-test is done; give it up to 4 minutes.
 status=1
-for i in $(seq 1 120); do
-    sleep 2
+for i in $(seq 1 80); do
+    sleep 3
     if adb shell "test -f $EXT/selftest.png.txt" 2>/dev/null; then
         sleep 2
         status=0
         break
+    fi
+    if [ $i -eq 10 ]; then
+        echo "--- after 30 s: process: $(adb shell pidof "$PKG" | tr -d '\r')"
     fi
 done
 
@@ -30,7 +34,20 @@ adb exec-out screencap -p > "$OUT/screen.png" || true
 adb pull "$EXT/selftest.png" "$OUT/" || true
 adb pull "$EXT/selftest.png.txt" "$OUT/" || true
 adb logcat -d > "$OUT/logcat.txt" || true
-grep -iE "femm|qt|fatal|crash|selftest" "$OUT/logcat.txt" | tail -80 || true
+
+echo "--- process still running: $(adb shell pidof "$PKG" | tr -d '\r')"
+echo "--- app log (Qt, FEMM, crashes)"
+grep -E "libfemm_gui|femm|Qt[A-Z ]|qt\.|AndroidRuntime|DEBUG   :|F DEBUG|libc    :|selftest|FATAL|Abort|SIGSEGV|SIGABRT" "$OUT/logcat.txt" \
+    | grep -v NamespaceManager | tail -120 || true
+echo "--- external files"
+adb shell ls -la "$EXT" 2>&1 || true
+
+# A small copy of the screen in the log, for when the artifact cannot be
+# downloaded: base64 JPEG between markers.
+if command -v convert > /dev/null && [ -s "$OUT/screen.png" ]; then
+    convert "$OUT/screen.png" -resize 900x -quality 60 "$OUT/screen_small.jpg" && {
+        echo "SCREEN-B64-BEGIN"; base64 -w 0 "$OUT/screen_small.jpg"; echo; echo "SCREEN-B64-END"; }
+fi
 
 if [ $status -ne 0 ]; then
     echo "self-test did not finish"
