@@ -511,11 +511,10 @@ void ScriptPanel::copyAiPrompt()
                   "your model after it."), false);
 }
 
-void ScriptPanel::pasteScript()
+void ScriptPanel::acceptScriptText(const QString &t, const QString &how)
 {
-    const QString t = QApplication::clipboard()->text();
     if (t.trimmed().isEmpty()) {
-        showStatus(tr("The clipboard has no text."), true);
+        showStatus(tr("No text to use as a script."), true);
         return;
     }
     // Assistants usually wrap code in a ```python fence; keep what is inside.
@@ -526,7 +525,19 @@ void ScriptPanel::pasteScript()
     if (m.hasMatch()) code = m.captured(1);
     m_dir.clear();
     setScriptText(code, "script.py");
-    showStatus(tr("Pasted %1 lines. Press Run.").arg(code.count('\n') + 1), false);
+    show();
+    raise();
+    showStatus(tr("%1 %2 lines. Press Run.").arg(how).arg(code.count('\n') + 1), false);
+}
+
+void ScriptPanel::pasteScript()
+{
+    const QString t = QApplication::clipboard()->text();
+    if (t.trimmed().isEmpty()) {
+        showStatus(tr("The clipboard has no text."), true);
+        return;
+    }
+    acceptScriptText(t, tr("Pasted"));
 }
 
 void ScriptPanel::openScript()

@@ -64,6 +64,9 @@ public:
     QString outputText() const { return m_runOutput; }
 
 public slots:
+    // Text from the clipboard or shared by another app: strips a ```python
+    // fence and replaces the script.
+    void acceptScriptText(const QString &text, const QString &how);
     void runScript();
     void stopScript();
     void pasteScript();

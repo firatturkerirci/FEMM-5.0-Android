@@ -27,6 +27,7 @@
 #include <process.h>
 #else
 #include <unistd.h>
+#include <sys/wait.h>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
@@ -512,7 +513,10 @@ int analyzeDocument(DocumentBase *doc, int hide, char *errmsg, int errmsg_size)
         }
 #else
         std::string cmd = "\"" + solver + "\" \"" + base + "\" > /dev/null 2>&1";
-        ret = system(cmd.c_str());
+        // system() returns a wait status, not the exit code: a solver that
+        // exits with 10 comes back as 2560 and the error table never matches.
+        const int st = system(cmd.c_str());
+        ret = (st != -1 && WIFEXITED(st)) ? WEXITSTATUS(st) : -1;
 #endif
     }
     if (ret != 0 && errmsg) {

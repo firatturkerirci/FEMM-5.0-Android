@@ -27,6 +27,7 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QJniEnvironment>
 #include <QJniObject>
 #include <QStandardPaths>
 #include <QtCore/qnativeinterface.h>
@@ -99,6 +100,16 @@ void femmAndroidSetup()
 QString femmAndroidWorkDir()
 {
     return s_workDir;
+}
+
+QString femmAndroidTakeSharedText()
+{
+    QJniObject t = QJniObject::callStaticObjectMethod(
+        "io/github/firatturkerirci/femm/FemmActivity", "takeSharedText",
+        "()Ljava/lang/String;");
+    QJniEnvironment env;
+    if (env.checkAndClearExceptions()) return QString();
+    return t.isValid() ? t.toString() : QString();
 }
 
 QString femmAndroidExternalDir()

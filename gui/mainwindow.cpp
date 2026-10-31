@@ -9,6 +9,9 @@
 #include "build_info.h"
 #include "py_console.h"
 #include "script_panel.h"
+#ifdef __ANDROID__
+#include "android_support.h"
+#endif
 #include "pre_prefs_dialog.h"
 #include "script_prefs_dialog.h"
 #include "coord_display.h"
@@ -145,6 +148,20 @@ MainWindow::MainWindow(TcpServer *server, QWidget *parent)
     QTimer::singleShot(0, this, [this]() {
         resizeDocks({m_scriptPanel}, {width() * 45 / 100}, Qt::Horizontal);
     });
+    // "Share > FEMM" from another app: pick the text up whenever we come to
+    // the foreground (and once at start, for a share that launched us).
+    {
+        auto takeShare = [this]() {
+            const QString t = femmAndroidTakeSharedText();
+            if (!t.isEmpty() && !py_is_running())
+                m_scriptPanel->acceptScriptText(t, tr("Received"));
+        };
+        connect(qApp, &QGuiApplication::applicationStateChanged, this,
+                [takeShare](Qt::ApplicationState st) {
+                    if (st == Qt::ApplicationActive) takeShare();
+                });
+        QTimer::singleShot(500, this, takeShare);
+    }
 #else
     m_scriptPanel->hide();
 #endif
