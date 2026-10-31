@@ -107,6 +107,12 @@ ic('condprops','İletken özellikleri','Conductor','pp_condprops', l=["M3 12h4",
 ic('console','Python konsolu','Python console','lua_console', l=["M3 5h18v14H3z","M7 10l3 2-3 2","M12 15h5"], f=[["M3 5h18v14H3z",.2]])
 ic('stamp','Damga','Stamp','stamp', l=["M9 4h6v6l3 3v3H6v-3l3-3z","M5 20h14"], f=[["M6 13h12v3H6z",.5]])
 
+# Dock title bar buttons (tablet): move the panel to a side, or close it.
+ic('dockleft','Sola al','Dock left',None, l=["M3.5 4.5h17v15h-17z","M9.5 4.5v15"], f=[["M3.5 4.5h6v15h-6z",.6]])
+ic('dockright','Sağa al','Dock right',None, l=["M3.5 4.5h17v15h-17z","M14.5 4.5v15"], f=[["M14.5 4.5h6v15h-6z",.6]])
+ic('dockbottom','Alta al','Dock bottom',None, l=["M3.5 4.5h17v15h-17z","M3.5 14h17"], f=[["M3.5 14h17v5.5h-17z",.6]])
+ic('close','Kapat','Close',None, l=["M6.5 6.5l11 11","M17.5 6.5l-11 11"])
+
 TONES = {
     'light': dict(fg='#16232a', a='#0b7f86', g='#23874b', r='#c0392b', w='#b7791f'),
     'dark':  dict(fg='#e3eaed', a='#3cc4cb', g='#4cc77a', r='#ef6b5d', w='#e3a948'),

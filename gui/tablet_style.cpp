@@ -104,6 +104,9 @@ QMenu::item { padding: 9px 28px 9px 14px; border-radius: 6px; }
 QMenu::item:selected { background: palette(highlight); color: palette(highlighted-text); }
 QMenu::separator { height: 1px; background: palette(mid); margin: 6px 8px; }
 
+QMainWindow::separator { background: palette(mid); width: 8px; height: 8px; }
+QMainWindow::separator:hover, QMainWindow::separator:pressed { background: palette(highlight); }
+#TabletDockTitle { background: palette(window); border-bottom: 1px solid palette(mid); }
 QToolTip { border: 0; border-radius: 6px; padding: 6px 10px; }
 QStatusBar { border-top: 1px solid palette(mid); }
 QDockWidget::title { padding: 8px 10px; background: palette(window); }

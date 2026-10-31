@@ -19,8 +19,11 @@
 #include <QPainter>
 #include <QPinchGesture>
 #include <QPixmap>
+#include <QTimer>
 #include <QWidget>
 #include <functional>
+
+#include "tablet_mode.h"
 
 class TouchNav : public QObject
 {
@@ -29,15 +32,7 @@ public:
     // then shift the view so the anchor follows the fingers by `moved` pixels.
     using Fn = std::function<void(const QPointF &, double, const QPointF &)>;
 
-    static void attach(QWidget *w, Fn fn)
-    {
-#ifdef __ANDROID__
-        new TouchNav(w, std::move(fn));
-#else
-        Q_UNUSED(w);
-        Q_UNUSED(fn);
-#endif
-    }
+    static void attach(QWidget *w, Fn fn);
 
 protected:
     bool eventFilter(QObject *obj, QEvent *e) override
@@ -144,3 +139,65 @@ private:
     QPointF m_t;
     bool m_active = false;
 };
+
+// While a view is being resized (a panel dragged, opened or closed beside it)
+// it would redraw the whole model for every step. Instead the first step
+// takes one picture, the following steps show that picture, and the real
+// redraw happens once, shortly after the resizing stops. Tablet mode only.
+class ResizeSmoother : public QObject
+{
+public:
+    explicit ResizeSmoother(QWidget *w) : QObject(w), m_w(w)
+    {
+        m_timer.setSingleShot(true);
+        m_timer.setInterval(160);
+        connect(&m_timer, &QTimer::timeout, this, [this]() {
+            m_active = false;
+            m_snapshot = QPixmap();
+            m_w->update();
+        });
+        w->installEventFilter(this);
+    }
+
+protected:
+    bool eventFilter(QObject *obj, QEvent *e) override
+    {
+        if (obj != m_w) return false;
+        if (e->type() == QEvent::Resize && m_w->isVisible()) {
+            if (!m_active) {
+                m_active = true;
+                m_snapshot = m_w->grab();
+                m_snapshot.setDevicePixelRatio(m_w->devicePixelRatioF());
+                const QImage corner = m_snapshot.copy(0, 0, 1, 1).toImage();
+                m_background = corner.isNull() ? m_w->palette().color(QPalette::Base)
+                                               : corner.pixelColor(0, 0);
+            }
+            m_timer.start();
+            return false;
+        }
+        if (e->type() == QEvent::Paint && m_active && !m_snapshot.isNull()) {
+            QPainter p(m_w);
+            p.fillRect(m_w->rect(), m_background);
+            p.drawPixmap(QPointF(0, 0), m_snapshot);
+            return true;   // the real paint comes when the timer fires
+        }
+        return false;
+    }
+
+private:
+    QWidget *m_w;
+    QTimer m_timer;
+    QPixmap m_snapshot;
+    QColor m_background;
+    bool m_active = false;
+};
+
+inline void TouchNav::attach(QWidget *w, Fn fn)
+{
+#ifdef __ANDROID__
+    new TouchNav(w, std::move(fn));
+#else
+    Q_UNUSED(fn);
+#endif
+    if (femmTabletMode()) new ResizeSmoother(w);
+}

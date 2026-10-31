@@ -10,6 +10,7 @@
 #include "py_console.h"
 #include "script_panel.h"
 #include "tablet_mode.h"
+#include "dock_title.h"
 #ifdef __ANDROID__
 #include "android_support.h"
 #endif
@@ -157,9 +158,12 @@ MainWindow::MainWindow(TcpServer *server, QWidget *parent)
     }
 #ifdef __ANDROID__
     m_scriptPanel->show();
-    QTimer::singleShot(0, this, [this]() {
-        resizeDocks({m_scriptPanel}, {width() * 45 / 100}, Qt::Horizontal);
-    });
+    // First start: the script panel takes 45% of the width. Later starts get
+    // the user's own layout back (setupTabletMode / saveSession).
+    if (!QSettings().contains("tablet/windowState"))
+        QTimer::singleShot(0, this, [this]() {
+            resizeDocks({m_scriptPanel}, {width() * 45 / 100}, Qt::Horizontal);
+        });
     // "Share > FEMM" from another app: pick the text up whenever we come to
     // the foreground (and once at start, for a share that launched us).
     {
@@ -2878,6 +2882,13 @@ void MainWindow::setupTabletMode()
     };
     QAction *scriptAct = m_scriptPanel->toggleViewAction();
     quick->addAction(scriptAct);
+    {
+        QAction *consoleAct = m_pyConsole->toggleViewAction();
+        consoleAct->setText(tr("Console"));
+        consoleAct->setIcon(icon("lua_console"));
+        consoleAct->setToolTip(tr("Show or hide the Python console"));
+        quick->addAction(consoleAct);
+    }
     quick->addSeparator();
     add("mesh", tr("Mesh"), tr("Create the mesh of the model"), [this]() { onCreateMesh(); });
     add("analyze", tr("Solve"), tr("Solve the model and show the results"),
@@ -2914,6 +2925,20 @@ void MainWindow::setupTabletMode()
         auto *e = activeEditor(); auto *r = activeResults(); auto *s = activeScalarResults();
         if (e) e->zoomFit(); else if (r) r->zoomFit(); else if (s) s->zoomFit();
     });
+
+    // Panels: big move/close buttons instead of dragging, no floating windows,
+    // no slide animations (each animation step redrew the model).
+    setDockOptions(QMainWindow::AllowNestedDocks | QMainWindow::AllowTabbedDocks);
+    m_pyConsole->setObjectName("PyConsole");
+    femmInstallTabletDockTitle(this, m_scriptPanel);
+    femmInstallTabletDockTitle(this, m_pyConsole);
+    // restoreState() matches toolbars by object name.
+    for (auto *tb : findChildren<QToolBar *>())
+        if (tb->objectName().isEmpty()) tb->setObjectName("tb_" + tb->windowTitle());
+    {
+        const QByteArray st = QSettings().value("tablet/windowState").toByteArray();
+        if (!st.isEmpty()) restoreState(st);
+    }
 
     // A larger status bar: it carries the hints for each mode.
     QFont sf = statusBar()->font();
@@ -2975,6 +3000,7 @@ void MainWindow::saveSession()
     auto *active = m_mdiArea->activeSubWindow();
     st.setValue(kSessionActive, active ? active->windowTitle() : QString());
     if (m_scriptPanel) m_scriptPanel->saveState();
+    st.setValue("tablet/windowState", saveState());   // panel places and sizes
     st.sync();
 }
 

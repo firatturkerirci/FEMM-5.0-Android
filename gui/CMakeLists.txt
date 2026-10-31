@@ -46,6 +46,7 @@ set(FEMM_GUI_SOURCES
     arc_dialog.cpp
     script_panel.cpp
     tablet_style.cpp
+    dock_title.cpp
     icons.qrc
     script_panel.qrc
     tablet_icons.qrc

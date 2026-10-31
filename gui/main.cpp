@@ -699,9 +699,9 @@ int main(int argc, char *argv[])
     qunsetenv("QT_QPA_PLATFORM_PLUGIN_PATH");
 
     QApplication app(argc, argv);
-    // The tablet theme (tablet_style.cpp) is under review: off unless
-    // FEMM_THEME is set. FEMM_THEME=light|dark|system picks the palette.
-    if (femmTabletMode() && qEnvironmentVariableIsSet("FEMM_THEME")) {
+    // Tablet look (tablet_style.cpp). FEMM_THEME=light|dark overrides the
+    // system's choice (for screenshots).
+    if (femmTabletMode()) {
         const QByteArray th = qgetenv("FEMM_THEME");
         femmApplyTabletStyle(app, th == "dark" ? 1 : th == "light" ? 0 : -1);
     }
@@ -914,6 +914,11 @@ int main(int argc, char *argv[])
                     qgetenv("FEMM_SELFTEST_ACTIONS")).split(';', Qt::SkipEmptyParts);
                 int n = 0;
                 for (const QString &step : steps) {
+                    if (step == "shot") {
+                        for (int i = 0; i < 5; ++i) QCoreApplication::processEvents();
+                        w.grab().save(selftestOut + "." + QString::number(++n) + ".png");
+                        continue;
+                    }
                     if (step.startsWith("tab:")) {
                         auto *mdi = w.findChild<QMdiArea *>();
                         for (auto *sub : mdi ? mdi->subWindowList() : QList<QMdiSubWindow *>())
