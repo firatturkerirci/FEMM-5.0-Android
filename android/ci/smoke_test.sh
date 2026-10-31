@@ -12,7 +12,7 @@ EXT="/sdcard/Android/data/$PKG/files"
 adb wait-for-device
 adb install -r -g "$APK" || exit 1
 adb logcat -c
-adb shell am start -W -n "$PKG/org.qtproject.qt.android.bindings.QtActivity" \
+adb shell am start -W -n "$PKG/$PKG.FemmActivity" \
     -e applicationArguments "-selftest ai_demo_solenoid.py selftest.png"
 
 # The app exits when the self-test is done; give it up to 4 minutes.
