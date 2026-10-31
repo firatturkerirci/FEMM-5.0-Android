@@ -5,9 +5,9 @@ as an Android app for tablets. Technical notes: [docs/android.md](docs/android.m
 
 ## Kurulum (Türkçe)
 
-1. Bu deponun **Releases** sayfasından `femm-android-arm64-v8a.apk` dosyasını
-   tablete indir. (Henüz sürüm yoksa: **Actions** > son başarılı "Android APK"
-   çalışması > *Artifacts* > `femm-android-arm64-v8a`.)
+1. Tabletin tarayıcısında şu bağlantıyı aç; en yeni sürüm doğrudan iner:
+   https://github.com/firatturkerirci/FEMM-5.0-Android/releases/latest/download/femm-android-arm64-v8a.apk
+   (Tüm sürümler: deponun **Releases** sayfası.)
 2. Dosyayı aç. Android "bilinmeyen kaynaklardan yükleme" izni isterse, dosyayı
    açtığın uygulamaya (tarayıcı veya Dosyalar) bu izni ver.
 3. FEMM'i aç. Sol tarafta **Script** paneli, sağda model görünümü vardır.
@@ -26,6 +26,9 @@ as an Android app for tablets. Technical notes: [docs/android.md](docs/android.m
    panelin altında görünür. Görünümü iki parmakla yakınlaştırıp kaydırabilirsin.
 5. Hata olursa hatalı satır kırmızıyla işaretlenir. **Copy Error**'a bas,
    yapay zekaya yapıştır, düzeltilmiş betiği alıp 3. adıma dön.
+
+Uygulamayı arka plana aldığında açık modeller kaydedilir. Android uygulamayı
+bu arada kapatırsa, yeniden açtığında modeller, sonuçlar ve betik geri gelir.
 
 Betikler ve oluşturdukları dosyalar (`.fem`, `.ans`, `.csv`) uygulamanın çalışma
 klasöründe tutulur. **Save** ile betiği istediğin yere kaydedebilir, **Open** ile

@@ -63,6 +63,9 @@ public:
     QString lastErrorReport() const { return m_errorReport; }
     QString statusText() const;
     QString outputText() const { return m_runOutput; }
+    // Keep the last run's output and status across an app restart.
+    void saveState() const;
+    void restoreState();
 
 public slots:
     // Text from the clipboard or shared by another app: strips a ```python

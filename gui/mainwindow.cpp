@@ -187,7 +187,15 @@ MainWindow::MainWindow(TcpServer *server, QWidget *parent)
     // widgets that do not take drops themselves pass the drag up to here.
     setAcceptDrops(true);
 
-    if (femmTabletMode()) setupTabletMode();
+    if (femmTabletMode()) {
+        setupTabletMode();
+        connect(qApp, &QGuiApplication::applicationStateChanged, this,
+                [this](Qt::ApplicationState st) {
+                    if (st == Qt::ApplicationSuspended || st == Qt::ApplicationHidden)
+                        saveSession();
+                });
+        connect(qApp, &QCoreApplication::aboutToQuit, this, [this]() { saveSession(); });
+    }
 
     // Window control buttons on the right side of the menu bar
     {
@@ -2906,4 +2914,81 @@ void MainWindow::setupTabletMode()
     QFont sf = statusBar()->font();
     sf.setPointSizeF(sf.pointSizeF() * 1.1);
     statusBar()->setFont(sf);
+}
+
+static const char *kSessionFiles  = "session/files";    // editor paths
+static const char *kSessionResult = "session/results";  // parallel: "1" = results open
+static const char *kSessionActive = "session/active";   // title of the front tab
+
+static QString resultsPathFor(const QString &modelPath)
+{
+    const QFileInfo fi(modelPath);
+    const QString ext = fi.suffix().toLower();
+    const QString rext = ext == "fee" ? "res" : ext == "feh" ? "anh" : ext == "fec" ? "anc" : "ans";
+    return fi.absolutePath() + "/" + fi.completeBaseName() + "." + rext;
+}
+
+void MainWindow::saveSession()
+{
+    if (py_is_running()) return;   // the script owns the documents right now
+    QStringList files, results;
+    QSet<QString> resultStems;
+    for (auto *sub : m_mdiArea->subWindowList())
+        if (qobject_cast<ResultsWidget *>(sub->widget())
+            || qobject_cast<ScalarResultsWidget *>(sub->widget()))
+            resultStems.insert(QFileInfo(sub->windowTitle().remove("*").trimmed()).completeBaseName());
+
+    int untitled = 0;
+    for (auto *sub : m_mdiArea->subWindowList(QMdiArea::CreationOrder)) {
+        auto *e = qobject_cast<EditorWidget *>(sub->widget());
+        if (!e || !e->document()) continue;
+        auto *doc = e->document();
+        if (doc->filePath.empty()) {
+            // Never saved: give it a name in the work folder rather than lose it.
+            static const char *exts[] = { "fem", "fee", "feh", "fec" };
+            const int pt = doc->physicsType();
+            const QString dir = m_scriptPanel ? m_scriptPanel->workDir() : QDir::currentPath();
+            QDir().mkpath(dir);
+            QString path;
+            do {
+                path = QString("%1/Untitled-%2.%3").arg(dir).arg(++untitled)
+                           .arg(exts[(pt >= 0 && pt < 4) ? pt : 0]);
+            } while (QFile::exists(path));
+            doc->filePath = path.toStdString();
+            sub->setWindowTitle(QFileInfo(path).fileName());
+        }
+        doc->SaveDocument(doc->filePath);
+        const QString path = QFileInfo(QString::fromStdString(doc->filePath)).absoluteFilePath();
+        if (files.contains(path)) continue;
+        files << path;
+        results << ((resultStems.contains(QFileInfo(path).completeBaseName())
+                     && QFile::exists(resultsPathFor(path))) ? "1" : "0");
+    }
+    QSettings st;
+    st.setValue(kSessionFiles, files);
+    st.setValue(kSessionResult, results);
+    auto *active = m_mdiArea->activeSubWindow();
+    st.setValue(kSessionActive, active ? active->windowTitle() : QString());
+    if (m_scriptPanel) m_scriptPanel->saveState();
+    st.sync();
+}
+
+void MainWindow::restoreSession()
+{
+    QSettings st;
+    const QStringList files = st.value(kSessionFiles).toStringList();
+    const QStringList results = st.value(kSessionResult).toStringList();
+    const QString active = st.value(kSessionActive).toString();
+    if (m_scriptPanel) m_scriptPanel->restoreState();
+    for (int i = 0; i < files.size(); ++i) {
+        if (!QFile::exists(files[i])) continue;
+        openPath(files[i]);
+        if (i < results.size() && results[i] == "1") {
+            const QString r = resultsPathFor(files[i]);
+            if (QFile::exists(r)) openResultsFile(r);
+        }
+    }
+    for (auto *sub : m_mdiArea->subWindowList())
+        if (sub->windowTitle() == active) { m_mdiArea->setActiveSubWindow(sub); break; }
+    if (!files.isEmpty()) updateStatus(tr("Restored your last session"));
 }

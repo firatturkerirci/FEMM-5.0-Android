@@ -109,6 +109,11 @@ private slots:
 
 public:
     ScriptPanel *scriptPanel() const { return m_scriptPanel; }
+    // Tablet: Android may stop the app while it is in the background. Save the
+    // open models and remember the tabs when we go there; reopen them at the
+    // next start.
+    void saveSession();
+    void restoreSession();
 
     // Sync the postprocessor View-menu / toolbar checkmarks to the given
     // active widget (a ResultsWidget or ScalarResultsWidget). Called both

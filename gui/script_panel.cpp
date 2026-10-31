@@ -386,6 +386,26 @@ void ScriptPanel::saveDraft() const
     s.setValue("scriptPanel/name", m_name);
 }
 
+void ScriptPanel::saveState() const
+{
+    saveDraft();
+    QSettings s;
+    s.setValue("scriptPanel/output", m_runOutput);
+    s.setValue("scriptPanel/status", m_status->text());
+    s.setValue("scriptPanel/errorReport", m_errorReport);
+}
+
+void ScriptPanel::restoreState()
+{
+    QSettings s;
+    m_runOutput = s.value("scriptPanel/output").toString();
+    m_output->setPlainText(m_runOutput);
+    m_errorReport = s.value("scriptPanel/errorReport").toString();
+    m_copyErrBtn->setEnabled(!m_errorReport.isEmpty());
+    const QString status = s.value("scriptPanel/status").toString();
+    if (!status.isEmpty()) showStatus(status, !m_errorReport.isEmpty());
+}
+
 void ScriptPanel::setRunning(bool running)
 {
     m_running = running;

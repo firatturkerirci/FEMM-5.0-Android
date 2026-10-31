@@ -54,6 +54,7 @@
 #include "solver_progress_dialog.h"
 #include "android_support.h"
 #include "script_panel.h"
+#include "tablet_mode.h"
 #include <QTimer>
 #include <QFile>
 
@@ -866,6 +867,10 @@ int main(int argc, char *argv[])
     // solver event loops during mi_analyze), so exit now with its status instead
     // of entering the main event loop and leaving the window open. Mirrors
     // femm_headless -run, so a script developed here runs the same way headless.
+    // Tablet: pick up where the user left off if Android stopped the app.
+    if (femmTabletMode() && fileArg.isEmpty())
+        QTimer::singleShot(300, &w, [&w]() { w.restoreSession(); });
+
     if (!selftestScript.isEmpty()) {
         QTimer::singleShot(1000, &w, [&w, selftestScript, selftestOut]() {
             ScriptPanel *p = w.scriptPanel();
