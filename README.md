@@ -1,5 +1,8 @@
 # FEMM 5.0
 
+> **Android:** this repository is the Android (tablet) port. Installation and
+> use: [ANDROID.md](ANDROID.md). Build notes: [docs/android.md](docs/android.md).
+
 FEMM is a finite element program for low-frequency electromagnetic problems in
 two dimensions, planar or axisymmetric: **magnetics** (static and
 time-harmonic), **electrostatics**, **heat flow** and **current flow**. It has
