@@ -153,3 +153,6 @@ Thumbs.db
 # Written into the source zip by packaging/buildsource.bat (a build from the
 # zip has no .git to ask); never part of the repository itself.
 /BUILD_NUMBER
+
+# Android package resources (app icon) are source files
+!android/package/res/**/*.png
