@@ -44,6 +44,15 @@ Code: `gui/android_support.cpp`, `android/AndroidPackage.cmake`, and
 * Plot X-Y and line integrals without a contour explain how to draw one, in a
   dialog, instead of a status-bar line (all platforms).
 
+## Launcher icon
+
+An adaptive icon (`android/package/res/mipmap-anydpi-v26/ic_launcher.xml`): the
+name with a copper wire wound loosely around it. The background colour and the
+foreground layer follow the system's light/dark mode (`values-night`,
+`mipmap-night-*`), and a monochrome layer serves Android 13 themed icons. The
+PNG layers are drawn by `node tools/app_icon/render.js` (Playwright Chromium,
+Barlow from Google Fonts); rerun it after changing the drawing.
+
 ## Building
 
 The APK is built by `.github/workflows/android.yml` on every push:

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FEMM launcher icon: the name with a copper wire wound around it.
+     Layers drawn by tools/app_icon/render.js. The background and the
+     foreground follow the system's light or dark mode (values-night,
+     mipmap-night-*); the monochrome layer is for Android 13 themed icons. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/femm_icon_background"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+    <monochrome android:drawable="@mipmap/ic_launcher_monochrome"/>
+</adaptive-icon>
