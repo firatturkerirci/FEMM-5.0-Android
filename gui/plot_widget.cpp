@@ -38,6 +38,43 @@ static const QColor seriesColors[] = {
 };
 static const int numSeriesColors = sizeof(seriesColors) / sizeof(seriesColors[0]);
 
+// Curve colours that read on a dark background (the tablet's dark theme).
+// The light list above stays as it was for the desktop.
+static const QColor seriesColorsDark[] = {
+    QColor(60, 196, 203),   // teal (the theme accent)
+    QColor(242, 199, 24),   // yellow
+    QColor(224, 48, 154),   // magenta
+    QColor(76, 199, 90),    // green
+    QColor(107, 140, 255),  // blue
+    QColor(239, 107, 93),   // red
+    QColor(227, 234, 237),  // near-white
+};
+static_assert(sizeof(seriesColorsDark) / sizeof(seriesColorsDark[0]) == numSeriesColors,
+              "keep both colour lists the same length");
+
+// Ink colours from the widget's palette, so the plot reads in a dark theme
+// too. On the default light palette they come out as before: black ink and a
+// light grey grid.
+struct PlotInk {
+    QColor ink, grid, marker;
+    bool dark;
+    explicit PlotInk(const QPalette &pal)
+    {
+        const QColor base = pal.color(QPalette::Base);
+        ink = pal.color(QPalette::Text);
+        dark = base.lightness() < 128;
+        const double t = dark ? 0.22 : 0.14;
+        grid = QColor::fromRgbF(base.redF() + (ink.redF() - base.redF()) * t,
+                                base.greenF() + (ink.greenF() - base.greenF()) * t,
+                                base.blueF() + (ink.blueF() - base.blueF()) * t);
+        marker = dark ? QColor(107, 140, 255) : QColor(0, 0, 255);
+    }
+    QColor series(size_t i) const
+    {
+        return dark ? seriesColorsDark[i % numSeriesColors] : seriesColors[i % numSeriesColors];
+    }
+};
+
 // ================================================================
 // PlotWidget
 // ================================================================
@@ -138,8 +175,10 @@ void PlotWidget::paintEvent(QPaintEvent *)
     if (nTicksX < 4 && !m_logX) { dx /= 2.0; nTicksX = (int)((xMax - xMin) / dx); }
     if (nTicksX == 0) nTicksX = 1;
 
-    // Grid lines (light gray, behind everything)
-    p.setPen(QPen(QColor(220, 220, 220), 1));
+    const PlotInk inkc(palette());
+
+    // Grid lines (faint, behind everything)
+    p.setPen(QPen(inkc.grid, 1));
     for (int i = 0; i <= nTicksY; i++) {
         double py = toPixY(yMin + i * dy);
         p.drawLine(QPointF(marginLeft, py), QPointF(marginLeft + plotW, py));
@@ -150,11 +189,11 @@ void PlotWidget::paintEvent(QPaintEvent *)
     }
 
     // Draw plot area border
-    p.setPen(QPen(Qt::black, 1));
+    p.setPen(QPen(inkc.ink, 1));
     p.drawRect(QRectF(marginLeft, marginTop, plotW, plotH));
 
     // Y-axis ticks and labels
-    p.setPen(QPen(Qt::black, 1));
+    p.setPen(QPen(inkc.ink, 1));
     for (int i = 0; i <= nTicksY; i++) {
         double yv = yMin + i * dy;
         double py = toPixY(yv);
@@ -196,7 +235,7 @@ void PlotWidget::paintEvent(QPaintEvent *)
 
     // Draw markers (raw data points as small squares, like original FEMM)
     if (!m_markers.x.empty()) {
-        p.setPen(QPen(QColor(0, 0, 255), 1));
+        p.setPen(QPen(inkc.marker, 1));
         p.setBrush(Qt::NoBrush);
         for (size_t i = 0; i < m_markers.x.size(); i++) {
             double xv = m_logX ? (m_markers.x[i] > 0 ? log10(m_markers.x[i]) : -30) : m_markers.x[i];
@@ -210,7 +249,7 @@ void PlotWidget::paintEvent(QPaintEvent *)
     for (size_t si = 0; si < m_series.size(); si++) {
         auto &s = m_series[si];
         if (s.x.size() < 2) continue;
-        QColor col = seriesColors[si % numSeriesColors];
+        QColor col = inkc.series(si);
         p.setPen(QPen(col, 2));
         p.setBrush(Qt::NoBrush);
 
@@ -230,11 +269,11 @@ void PlotWidget::paintEvent(QPaintEvent *)
         int lx = (int)(marginLeft + plotW - 10);
         int ly = (int)(marginTop + 10);
         for (size_t si = 0; si < m_series.size(); si++) {
-            QColor col = seriesColors[si % numSeriesColors];
+            QColor col = inkc.series(si);
             p.setPen(QPen(col, 2));
             int y = ly + (int)si * (fm.height() + 2);
             p.drawLine(lx - 30, y + fm.height() / 2, lx - 5, y + fm.height() / 2);
-            p.setPen(Qt::black);
+            p.setPen(inkc.ink);
             p.drawText(QRectF(lx - 150, y, 115, fm.height()), Qt::AlignRight, m_series[si].label);
         }
     }

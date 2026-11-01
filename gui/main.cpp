@@ -916,7 +916,13 @@ int main(int argc, char *argv[])
                 for (const QString &step : steps) {
                     if (step == "shot") {
                         for (int i = 0; i < 5; ++i) QCoreApplication::processEvents();
-                        w.grab().save(selftestOut + "." + QString::number(++n) + ".png");
+                        const QString base = selftestOut + "." + QString::number(++n);
+                        w.grab().save(base + ".png");
+                        int k = 0;   // other open windows (a plot, say)
+                        for (QWidget *tl : QApplication::topLevelWidgets())
+                            if (tl != &w && tl->isVisible()
+                                && tl->width() > 50)
+                                tl->grab().save(base + ".w" + QString::number(++k) + ".png");
                         continue;
                     }
                     if (step.startsWith("tab:")) {
