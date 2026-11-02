@@ -30,6 +30,11 @@
 #include <QSyntaxHighlighter>
 #include <QTextBlock>
 #include <QTimer>
+#include <QInputMethod>
+#include <QGuiApplication>
+#include <QKeyEvent>
+#include <QToolBar>
+#include <QScroller>
 #include <QToolButton>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -202,6 +207,67 @@ void ScriptCodeEdit::paintGutter(QPaintEvent *e)
     }
 }
 
+void ScriptCodeEdit::keyPressEvent(QKeyEvent *e)
+{
+    if ((e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter)
+        && !(e->modifiers() & (Qt::ControlModifier | Qt::AltModifier))) {
+        QTextCursor c = textCursor();
+        const QString line = c.block().text().left(c.positionInBlock());
+        int n = 0;
+        while (n < line.size() && line[n] == ' ') ++n;
+        QString indent(n, ' ');
+        if (line.trimmed().endsWith(':')) indent += "    ";
+        c.insertText("\n" + indent);
+        setTextCursor(c);
+        ensureCursorVisible();
+        return;
+    }
+    if (e->key() == Qt::Key_Tab && !(e->modifiers() & Qt::ShiftModifier)) {
+        if (textCursor().hasSelection()) indentLines(true);
+        else insertPlainText(QString(4 - textCursor().positionInBlock() % 4, ' '));
+        return;
+    }
+    if (e->key() == Qt::Key_Backtab) { indentLines(false); return; }
+    QPlainTextEdit::keyPressEvent(e);
+}
+
+void ScriptCodeEdit::indentLines(bool in)
+{
+    QTextCursor c = textCursor();
+    const int start = document()->findBlock(qMin(c.selectionStart(), c.selectionEnd())).blockNumber();
+    QTextBlock endBlock = document()->findBlock(qMax(c.selectionStart(), c.selectionEnd()));
+    // A selection that ends at the very start of a line does not include it.
+    if (c.hasSelection() && qMax(c.selectionStart(), c.selectionEnd()) == endBlock.position()
+        && endBlock.blockNumber() > start)
+        endBlock = endBlock.previous();
+    const int end = endBlock.blockNumber();
+    QTextCursor e(document());
+    e.beginEditBlock();
+    for (int b = start; b <= end; ++b) {
+        QTextBlock blk = document()->findBlockByNumber(b);
+        QTextCursor lc(blk);
+        if (in) {
+            lc.insertText("    ");
+        } else {
+            int n = 0;
+            const QString t = blk.text();
+            while (n < 4 && n < t.size() && t[n] == ' ') ++n;
+            lc.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, n);
+            lc.removeSelectedText();
+        }
+    }
+    e.endEditBlock();
+}
+
+void ScriptCodeEdit::zoomText(int steps)
+{
+    QFont f = font();
+    f.setPointSize(qBound(8, f.pointSize() + steps, 28));
+    setFont(f);
+    setTabStopDistance(4 * fontMetrics().horizontalAdvance(' '));
+    updateGutterWidth();
+}
+
 void ScriptCodeEdit::setErrorLine(int line)
 {
     m_errorLine = line;
@@ -269,6 +335,46 @@ ScriptPanel::ScriptPanel(PyConsole *console, QWidget *parent)
     v->addLayout(buttons);
 
     m_edit = new ScriptCodeEdit(root);
+    if (femmTabletMode()) {
+        // Editing on a touch screen: a finger drag scrolls (a mouse or pen
+        // still selects), and a row of buttons does what the on-screen
+        // keyboard cannot.
+        QScroller::grabGesture(m_edit->viewport(), QScroller::TouchGesture);
+        auto *bar = new QToolBar(root);
+        bar->setIconSize(QSize(20, 20));
+        bar->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        auto add = [bar](const QString &text, const QString &tip, auto fn) {
+            QAction *a = bar->addAction(text);
+            a->setToolTip(tip);
+            QObject::connect(a, &QAction::triggered, bar, fn);
+            return a;
+        };
+        add(tr("Keyboard"), tr("Show the keyboard to type in the script"), [this]() {
+            m_edit->setFocus();
+            QGuiApplication::inputMethod()->show();
+        });
+        bar->addSeparator();
+        add(tr("Undo"), tr("Undo the last change"), [this]() { m_edit->undo(); });
+        add(tr("Redo"), tr("Redo"), [this]() { m_edit->redo(); });
+        bar->addSeparator();
+        add(QStringLiteral("\u2192 ") + tr("Indent"), tr("Indent the selected lines by four spaces"),
+            [this]() { m_edit->indentLines(true); });
+        add(QStringLiteral("\u2190 ") + tr("Outdent"), tr("Remove four spaces from the selected lines"),
+            [this]() { m_edit->indentLines(false); });
+        bar->addSeparator();
+        add(QStringLiteral("A\u2212"), tr("Smaller text"), [this]() { m_edit->zoomText(-1); });
+        add(QStringLiteral("A+"), tr("Larger text"), [this]() { m_edit->zoomText(+1); });
+        QAction *wrap = add(tr("Wrap"), tr("Wrap long lines instead of scrolling sideways"), [this](bool on) {
+            m_edit->setLineWrapMode(on ? QPlainTextEdit::WidgetWidth : QPlainTextEdit::NoWrap);
+            QSettings().setValue("scriptPanel/wrap", on);
+        });
+        wrap->setCheckable(true);
+        if (QSettings().value("scriptPanel/wrap", true).toBool()) {
+            wrap->setChecked(true);
+            m_edit->setLineWrapMode(QPlainTextEdit::WidgetWidth);
+        }
+        v->addWidget(bar);
+    }
     m_edit->setPlaceholderText(tr(
         "Paste a FEMM Python script here and press Run.\n\n"
         "Tip: press \"AI Prompt\", paste it into your AI assistant, then describe "
@@ -287,6 +393,8 @@ ScriptPanel::ScriptPanel(PyConsole *console, QWidget *parent)
     of.setPointSize(kEditorPt - 1);
     m_output->setFont(of);
     m_output->setPlaceholderText(tr("Script output appears here."));
+    if (femmTabletMode())
+        QScroller::grabGesture(m_output->viewport(), QScroller::TouchGesture);
 
     auto *split = new QSplitter(Qt::Vertical, root);
     split->addWidget(m_edit);

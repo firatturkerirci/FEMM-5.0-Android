@@ -35,8 +35,17 @@ public:
     // 1-based; 0 clears the highlight.
     void setErrorLine(int line);
 
+    // Editing helpers for a touch screen, where the on-screen keyboard has no
+    // Tab key: indent or outdent the selected lines (or the current one) by
+    // four spaces; make the text larger or smaller.
+    void indentLines(bool in);
+    void zoomText(int steps);
+
 protected:
     void resizeEvent(QResizeEvent *e) override;
+    // Enter keeps the indentation of the line above (one level more after a
+    // line ending in ':'); Tab and Shift+Tab indent and outdent.
+    void keyPressEvent(QKeyEvent *e) override;
 
 private:
     void updateGutterWidth();
