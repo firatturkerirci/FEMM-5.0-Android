@@ -57,6 +57,8 @@
 #include "tablet_mode.h"
 #include "tablet_style.h"
 #include <QAction>
+#include <QTextCursor>
+#include <QPlainTextEdit>
 #include <QPainter>
 #include <QDialog>
 #include <QMdiArea>
@@ -923,6 +925,36 @@ int main(int argc, char *argv[])
                             if (tl != &w && tl->isVisible()
                                 && tl->width() > 50)
                                 tl->grab().save(base + ".w" + QString::number(++k) + ".png");
+                        continue;
+                    }
+                    if (step.startsWith("type:")) {
+                        // Key presses into the script editor, through the
+                        // application's event filters, as a keyboard would.
+                        auto *ed = w.scriptPanel()->findChild<ScriptCodeEdit *>();
+                        const QString before = ed->toPlainText();
+                        ed->setFocus();
+                        ed->moveCursor(QTextCursor::End);
+                        QCoreApplication::processEvents();
+                        QString keys = step.mid(5);
+                        keys.replace("\\n", "\n");
+                        for (QChar ch : keys) {
+                            const int key = ch == '\n' ? int(Qt::Key_Return) : int(ch.toUpper().unicode());
+                            const QString txt = ch == '\n' ? QString("\r") : QString(ch);
+                            QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier, txt);
+                            QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier, txt);
+                            QWidget *target = QApplication::focusWidget() ? QApplication::focusWidget() : ed;
+                            QApplication::sendEvent(target, &press);
+                            QApplication::sendEvent(target, &release);
+                        }
+                        {
+                            const QString after = ed->toPlainText();
+                            int i = 0;
+                            while (i < before.size() && i < after.size() && before[i] == after[i]) ++i;
+                            fprintf(stderr, "selftest: typed: length %d -> %d, change at %d: [%s] -> [%s], cursor %d\n",
+                                    int(before.size()), int(after.size()), i,
+                                    qPrintable(before.mid(i, 20)), qPrintable(after.mid(i, 20)),
+                                    ed->textCursor().position());
+                        }
                         continue;
                     }
                     if (step.startsWith("tab:")) {
