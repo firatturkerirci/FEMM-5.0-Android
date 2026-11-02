@@ -55,6 +55,12 @@
 #include <QMenuBar>
 #include <QSocketNotifier>
 #include <QToolBar>
+#include <QInputMethod>
+#include <QAbstractSpinBox>
+#include <QTextEdit>
+#include <QPlainTextEdit>
+#include <QLineEdit>
+#include <QToolButton>
 #include <QStatusBar>
 #include <QLabel>
 #include <QMessageBox>
@@ -2835,6 +2841,18 @@ void MainWindow::setupTabletMode()
     setStyleSheet(QString());   // the desktop's grey "checked" toolbar colour
 #ifdef __ANDROID__
     femmAndroidHideActionBar();
+    // Android's text selection handles and "Copy / Select all" bubble stayed
+    // on screen after the focus left a text field, over the drawing, and got
+    // in the way of taps. Close them whenever the focus moves elsewhere.
+    connect(qApp, &QApplication::focusChanged, this, [](QWidget *, QWidget *now) {
+        const bool text = qobject_cast<QLineEdit *>(now) || qobject_cast<QPlainTextEdit *>(now)
+                       || qobject_cast<QTextEdit *>(now) || qobject_cast<QAbstractSpinBox *>(now)
+                       || (qobject_cast<QComboBox *>(now) && static_cast<QComboBox *>(now)->isEditable());
+        if (!text) {
+            QGuiApplication::inputMethod()->reset();
+            QGuiApplication::inputMethod()->hide();
+        }
+    });
 #endif
     {
         QFont f = menuBar()->font();
@@ -2864,6 +2882,31 @@ void MainWindow::setupTabletMode()
         insertToolBarBreak(firstTop);
     } else {
         addToolBar(Qt::TopToolBarArea, quick);
+    }
+
+    // The menus as a row of large buttons above the quick bar. QMenuBar is
+    // built for a mouse: with a finger or pen, opening menus and switching
+    // between them was unreliable. The buttons open the same QMenu objects,
+    // and they follow the menus' visibility as the editor and results swap.
+    {
+        auto *strip = new QToolBar(tr("Menus"), this);
+        strip->setObjectName("MenuStrip");
+        strip->setMovable(false);
+        strip->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        QFont f = strip->font();
+        f.setPointSizeF(f.pointSizeF() * 1.12);
+        strip->setFont(f);
+        for (QAction *a : menuBar()->actions()) {
+            if (!a->menu()) continue;
+            strip->addAction(a);
+            if (auto *b = qobject_cast<QToolButton *>(strip->widgetForAction(a))) {
+                b->setPopupMode(QToolButton::InstantPopup);
+                b->setMinimumHeight(40);
+            }
+        }
+        insertToolBar(quick, strip);
+        insertToolBarBreak(quick);
+        menuBar()->hide();
     }
 
     auto add = [&](const char *ico, const QString &text, const QString &tip,

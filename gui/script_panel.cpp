@@ -276,7 +276,9 @@ ScriptPanel::ScriptPanel(PyConsole *console, QWidget *parent)
 
     m_status = new QLabel(root);
     m_status->setWordWrap(true);
-    m_status->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    // Selectable on the desktop; on a tablet a long press would bring up
+    // Android's selection handles over the panel.
+    if (!femmTabletMode()) m_status->setTextInteractionFlags(Qt::TextSelectableByMouse);
 
     m_output = new QPlainTextEdit(root);
     m_output->setReadOnly(true);

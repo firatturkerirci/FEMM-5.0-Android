@@ -67,6 +67,20 @@ class TabletStyle : public QProxyStyle
 public:
     explicit TabletStyle(QStyle *base) : QProxyStyle(base) {}
 
+    int styleHint(StyleHint h, const QStyleOption *opt, const QWidget *w,
+                  QStyleHintReturn *ret) const override
+    {
+        switch (h) {
+        // A combo box opens a scrolling list right under itself, not a
+        // menu-like popup over the whole screen, and the highlight does not
+        // follow a finger dragged across the list.
+        case SH_ComboBox_Popup:              return 0;
+        case SH_ComboBox_ListMouseTracking:  return 0;
+        case SH_Menu_MouseTracking:          return 0;
+        default: return QProxyStyle::styleHint(h, opt, w, ret);
+        }
+    }
+
     int pixelMetric(PixelMetric m, const QStyleOption *opt, const QWidget *w) const override
     {
         switch (m) {
