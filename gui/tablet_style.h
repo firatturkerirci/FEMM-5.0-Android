@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 Fırat Türkerirci and contributors
+// Copyright (C) 2026 Fırat Türker Ircı and contributors
 //
 // tablet_style.h - the tablet look: Fusion style, a palette that follows the
 // system's light or dark mode, touch-sized controls, and dialogs sized and

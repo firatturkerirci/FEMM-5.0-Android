@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 Fırat Türkerirci and contributors
+// Copyright (C) 2026 Fırat Türker Ircı and contributors
 //
 // script_panel.cpp - see script_panel.h.
 

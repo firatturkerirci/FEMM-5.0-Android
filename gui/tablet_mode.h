@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 Fırat Türkerirci and contributors
+// Copyright (C) 2026 Fırat Türker Ircı and contributors
 //
 // tablet_mode.h - whether to use the touch-friendly layout: always on Android;
 // on the desktop when FEMM_TABLET is set (for trying the layout out).

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 Fırat Türkerirci and contributors
+// Copyright (C) 2026 Fırat Türker Ircı and contributors
 //
 // FemmActivity - Qt's activity plus "Share to FEMM": text or a .py file shared
 // from another app (an AI assistant, a browser, a file manager) is kept here

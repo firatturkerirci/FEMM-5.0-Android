@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Copyright (C) 2026 Fırat Türkerirci and contributors
+# Copyright (C) 2026 Fırat Türker Ircı and contributors
 #
 # gen_tablet_icons.py - draw the tablet toolbar icons (two-tone style) as SVG.
 #

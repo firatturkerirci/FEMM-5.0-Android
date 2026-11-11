@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 Fırat Türkerirci and contributors
+// Copyright (C) 2026 Fırat Türker Ircı and contributors
 //
 // dock_title.cpp - see dock_title.h.
 
