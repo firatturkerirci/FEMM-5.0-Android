@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 David Meeker and contributors
+// Copyright (C) 2026 Fırat Türkerirci and contributors
 //
 // tablet_style.cpp - see tablet_style.h.
 

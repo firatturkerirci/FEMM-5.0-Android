@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 David Meeker and contributors
+// Copyright (C) 2026 Fırat Türkerirci and contributors
 //
 // dock_title.h - a touch-friendly title bar for the script panel and the
 // Python console in tablet mode: the panel's name and four large buttons to

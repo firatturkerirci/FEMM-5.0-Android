@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 David Meeker and contributors
+// Copyright (C) 2026 Fırat Türkerirci and contributors
 //
 // render.js - draw the Android launcher icon (FEMM with a copper wire wound
 // around the name) and write the adaptive-icon layers into

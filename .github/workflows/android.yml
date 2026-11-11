@@ -224,15 +224,12 @@ jobs:
           name: FEMM for Android ${{ inputs.release_tag || github.ref_name }}
           make_latest: true
           body: |
-            FEMM 5.0 for Android tablets (arm64).
+            Unofficial FEMM 5.0 build for Android tablets (arm64).
 
-            **Kurulum:** `femm-android-arm64-v8a.apk` dosyasını tablete indir ve
-            aç. Android izin isterse "bu kaynaktan yüklemeye izin ver" seçeneğini
-            aç. Önceki bir sürüm farklı bir anahtarla imzalandıysa, önce onu
-            kaldır.
-
-            **Install:** download `femm-android-arm64-v8a.apk` on the tablet and
-            open it. See [ANDROID.md](https://github.com/${{ github.repository }}/blob/${{ github.sha }}/ANDROID.md).
+            **Install:** download `femm-android-arm64-v8a.apk` on the tablet
+            and open it; allow installing from that source if Android asks.
+            Remove an older version first (builds are not yet signed with a
+            fixed key). See [ANDROID.md](https://github.com/${{ github.repository }}/blob/${{ github.sha }}/ANDROID.md).
 
             Always the newest build:
             https://github.com/${{ github.repository }}/releases/latest/download/femm-android-arm64-v8a.apk

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 David Meeker and contributors
+// Copyright (C) 2026 Fırat Türkerirci and contributors
 //
 // android_support.cpp - Android start-up for femm_gui.
 //

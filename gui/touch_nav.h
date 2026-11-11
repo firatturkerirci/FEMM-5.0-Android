@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 David Meeker and contributors
+// Copyright (C) 2026 Fırat Türkerirci and contributors
 //
 // touch_nav.h - two-finger navigation for the drawing and results views on a
 // touch screen: pinch to zoom about the fingers, drag with two fingers to pan.

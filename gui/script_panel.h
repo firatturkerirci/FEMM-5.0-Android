@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 David Meeker and contributors
+// Copyright (C) 2026 Fırat Türkerirci and contributors
 //
 // script_panel.h - a dockable script editor built for the "write the script
 // elsewhere (often with an AI assistant), paste it, run it" workflow.
